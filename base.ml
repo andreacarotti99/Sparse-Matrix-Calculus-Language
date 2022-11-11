@@ -31,14 +31,37 @@ let lookup_coo (gamma : context) (x : ident) : coodecl option =
 
 (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 (* coo support functions *)
+
+(*
+matrix used as example:
+1 7 0 0 
+0 2 8 0 
+5 0 3 9 
+0 6 0 4
+
+COO format of the matrix:
+rows = [0; 0; 1; 1; 2; 2; 2; 3; 3]
+cols = [0; 1; 1; 2; 0; 2; 3; 1; 3]
+data = [1; 7; 2; 8; 5; 3; 9; 6; 4]
+*)
+
+(*returns the size of the list*)
 let get_size (l : int list) = List.length l
 
+(*given the size of an array and the number of columns of the matrix returns the column position in the matrix of the element in the array*)
 let get_col (size : int) (num_cols : int) : int = (num_cols - (size mod num_cols)) mod num_cols
 
+(*given the size of an array, the number of columns of the matrix, and the number of rows returns the row position in the matrix of the element in the array*)
 let get_row (size : int) (num_rows : int) (num_cols : int) : int = 
   if (size mod num_cols = 0) then (num_rows - (size / num_cols) ) 
   else (num_rows - (size / num_cols) ) - 1
 
+(*
+given an array (representing a 4x4 matrix) like: 
+l1 = [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]
+returns the array without zeros:
+l1 = [1; 7; 2; 8; 5; 3; 9; 6; 4]
+*)
 let rec get_data_array content =
   match content with
   | [] -> []
@@ -46,6 +69,13 @@ let rec get_data_array content =
     | 0 -> get_data_array tail
     | _ -> head :: (get_data_array tail) )
 
+
+(*
+given an array (representing a 4x4 matrix) like: 
+l1 = [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]
+returns the columns of the non-zero elements in an array
+l1 = [0; 1; 1; 2; 0; 2; 3; 1; 3]
+*)
 let rec get_cols_array content num_cols = 
   match content with
     | [] -> []
@@ -53,6 +83,12 @@ let rec get_cols_array content num_cols =
       | 0 -> get_cols_array tail num_cols
       | _ -> (get_col (get_size content) num_cols) :: (get_cols_array tail num_cols) )
 
+(*
+given an array (representing a 4x4 matrix) like: 
+l1 = [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]
+returns the rows of the non-zero elements in an array
+l1 = [0; 0; 1; 1; 2; 2; 2; 3; 3]
+*)
 let rec get_rows_array content num_rows num_cols = 
   match content with
     | [] -> []
