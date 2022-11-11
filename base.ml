@@ -6,7 +6,7 @@ type exp = Var of ident | Num of int | Add of exp * exp | Sub of exp * exp
          | Bool of bool | And of exp * exp | Or of exp * exp
          | Eq of exp * exp
          | Vector of int list
-
+          
 (* switch(E){ case <#>: C … case <#>: C default: C } *)
 type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | IfC of exp * cmd * cmd | While of exp * cmd
@@ -15,20 +15,33 @@ type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | CreateCOO of ident * exp * exp * exp
 
 type coodecl = {row : exp; cols : exp; data : exp}
-
-(* type checker *)
+type value = IntVal of int | BoolVal of bool | VectorVal of int list 
+type entry = Val of value | Fun of ident list * cmd | COO of coodecl
 type typ = IntTy | BoolTy | VectorTy | COO of coodecl
 
+(* context *)
 type context = ident -> typ option
 let empty_context = fun x -> None
 let lookup_context (gamma : context) (x : ident) : typ option = gamma x
 let update_context (gamma : context) (x : ident) (e : typ) = fun y -> if y = x then Some e else gamma y
 
+(* state *)
+type state = ident -> entry option
+let empty_state = fun x -> None
+let lookup_state (s : state) (x : ident) : entry option = s x
+let update_state (s : state) (x : ident) (e : entry) : state = fun y -> if y = x then Some e else s y
+
 let lookup_coo (gamma : context) (x : ident) : coodecl option =
   match lookup_context gamma x with 
     | Some (COO cd) -> Some cd 
     | _ -> None
+let update_coo (gamma : context) (x : ident) (coo : coodecl) : context = update_context gamma x (COO coo)
 
+
+
+type stack = (state * ident) list
+
+type config = cmd * stack * state
 
 
 (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
@@ -133,21 +146,11 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
   | Skip -> true
   | IfC (e, c1, c2) -> type_of gamma e = Some BoolTy && typecheck_cmd gamma c1 && typecheck_cmd gamma c2
   | While (e, c) -> type_of gamma e = Some BoolTy && typecheck_cmd gamma c
+  | CreateCOO(x, num_row, num_col, content) ->(match lookup_coo gamma x, type_of gamma num_row, type_of gamma num_col,type_of gamma content with
+                                              | Some _, Some IntTy, Some IntTy, Some VectorTy->true
+                                              |_,_,_,_ ->false
+  )
 
-
-
-(* semantics *)
-type value = IntVal of int | BoolVal of bool | VectorVal of int list 
-
-type entry = Val of value | Fun of ident list * cmd | COO of coodecl
-(* state *)
-type state = ident -> entry option
-let empty_state = fun x -> None
-let lookup_state (s : state) (x : ident) : entry option = s x
-let update_state (s : state) (x : ident) (e : entry) : state = fun y -> if y = x then Some e else s y
-
-
-let update_coo (gamma : context) (x : ident) (coo : coodecl) : context = update_context gamma x (COO coo)
 
 
 let rec eval_exp (e : exp) (s : state) : value option =
@@ -184,9 +187,7 @@ let rec add_args (s : state) (li : ident list) (lv : value list) : state =
   | i :: irest, v :: vrest -> add_args (update_state s i (Val v)) irest vrest
   | _, _ -> s
 
-type stack = (state * ident) list
 
-type config = cmd * stack * state
 
 let rec step_cmd (c : cmd) (k : stack) (s : state) : config option =
   match c with
