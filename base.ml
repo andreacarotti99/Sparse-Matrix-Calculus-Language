@@ -13,9 +13,10 @@ type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | Call of ident * ident * exp list | Return of exp
            (*| Switch of exp * (int * cmd) list * cmd *)
            | CreateCOO of ident * exp * exp * exp
+           | MatSumCOO of ident * exp * exp
 
-type coodecl = {row : exp; cols : exp; data : exp}
-type value = IntVal of int | BoolVal of bool | VectorVal of int list 
+type coodecl = {rows : exp; cols : exp; data : exp}
+type value = IntVal of int | BoolVal of bool | VectorVal of int list | COOVal of coodecl
 type entry = Val of value | Fun of ident list * cmd | COO of coodecl
 type typ = IntTy | BoolTy | VectorTy | COO of coodecl
 
@@ -113,7 +114,32 @@ let rec get_rows_array (content:int list) (num_rows: int) (num_cols:int): int li
       
 
 let parse_coo (num_rows:int) (num_cols:int) (v:int list): coodecl =
-  {row = Vector(get_rows_array v num_rows num_cols); cols = Vector(get_cols_array v num_cols); data = Vector(get_data_array v)}
+  {rows = Vector(get_rows_array v num_rows num_cols); cols = Vector(get_cols_array v num_cols); data = Vector(get_data_array v)}
+let get_rows_coo (c: coodecl): int list = 
+  match c.rows with Vector v -> v
+
+let get_cols_coo (c: coodecl): int list = 
+  match c.cols with Vector v -> v
+  
+let get_data_coo (c: coodecl): int list = 
+  match c.data with Vector v -> v
+
+let rec vecs_op_aux (coo1: coodecl) (coo2 : coodecl) (ret : coodecl): coodecl option = 
+    match get_rows_coo coo1, get_rows_coo coo2, get_cols_coo coo1, get_cols_coo coo2 with
+    | [], [],[],[] -> Some {rows = Vector(rev (get_rows_coo ret)); cols = Vector(rev (get_cols_coo ret)); data = Vector(rev (get_data_coo ret))}
+    | [], rows2,[] , cols2-> Some {rows = Vector((rev (get_rows_coo ret))@ rows2); cols = Vector((rev (get_cols_coo ret)) @ cols2); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2))}
+    | rows1, [],cols1 , []-> Some {rows = Vector((rev (get_rows_coo ret))@ rows1); cols = Vector((rev (get_cols_coo ret)) @ cols1); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1))}
+    | r1 :: rest1_row, r2 :: rest2_row,   c1 :: rest1_col,   c2 :: rest2_col->
+        if      (r1 = r2 && c1 = c2) then vecs_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) + (hd (get_data_coo coo2)))::(get_data_coo ret))})
+        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then vecs_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret))})
+        else if ((r1 = r2 && c1 > c2)|| r2<r1) then vecs_op_aux coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo2))::(get_data_coo ret))})
+
+        else None
+    | _, _, _, _ -> None
+
+let sum_op (c1: coodecl) (c2 : coodecl): coodecl option = 
+    vecs_op_aux c1 c2 {rows = Vector([]); cols = Vector([]); data = Vector([])}
+
 
   (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 
@@ -155,7 +181,9 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
 
 let rec eval_exp (e : exp) (s : state) : value option =
   match e with
-  | Var x -> (match lookup_state s x with Some (Val v) -> Some v | _ -> None)
+  | Var x -> (match lookup_state s x with Some (Val v) -> Some v 
+              | Some( COO c) -> Some(COOVal c)
+              | _ -> None)
   | Num i -> Some (IntVal i)
   | Add (e1, e2) -> (match eval_exp e1 s, eval_exp e2 s with
                      | Some (IntVal i1), Some (IntVal i2) -> Some (IntVal (i1 + i2))
@@ -216,7 +244,12 @@ let rec step_cmd (c : cmd) (k : stack) (s : state) : config option =
       (match eval_exp content s,eval_exp num_row s,eval_exp num_col s with
           | Some( VectorVal v ), Some(IntVal r),Some(IntVal c)-> Some (Skip, k, update_state s x (COO (parse_coo r c v)) )
           | _ -> None)
-
+  | MatSumCOO (x, v1, v2) -> 
+      (match eval_exp v1 s,eval_exp v2 s with
+          | Some( COOVal c1), Some(COOVal c2)-> match (sum_op c1 c2) with
+                                                |Some res -> Some (Skip, k, update_state s x (COO res) )
+                                                |_ ->None
+          | _ -> None)
 
 
 let rec run_config (con : config) : config =
@@ -233,16 +266,19 @@ let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x"
 let state1 = update_state (update_state state0 "x" (Val (IntVal 1)))
   "y" (Val (IntVal 2))
   
-let config1 =( CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]), [(state0, "x")], state1)
-let config2 = (Assign("s", Add(Num 4, Num 4)), [(state0, "x")], state1)
+let config1 =( Seq(Seq(CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]),CreateCOO("s",Num 4, Num 4, Vector [1; 7; 3; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])),MatSumCOO("c",Var "z",Var "s")), [(state0, "x")], state1)
+let config2 = (CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]), [(state0, "x")], state1)
 let prog1 = Call ("x", "f", [Num 1; Num 2])
 
 let (res_c, res_k, res_s) = run_config config1;;
 lookup_state res_s "z";; (* should return Some (Val (IntVal 3)) *)
+lookup_state res_s "s";; 
+lookup_state res_s "c";; 
 
 let (res_c, res_k, res_s) = run_config config2;;
-lookup_state res_s "s";; (* should return Some (Val (IntVal 3)) *)
+lookup_state res_s "z";; (* should return Some (Val (IntVal 3)) *)
 (*
 let (res_c, res_k, res_s) = run_prog prog1 state0;;
 lookup_state res_s "x";;  should return Some (Val (IntVal 3))
 lookup_state res_s "y";; should return None *)
+ 
