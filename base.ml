@@ -7,11 +7,9 @@ type exp = Var of ident | Num of int | Add of exp * exp | Sub of exp * exp
          | Eq of exp * exp
          | Vector of int list
           
-(* switch(E){ case <#>: C … case <#>: C default: C } *)
 type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | IfC of exp * cmd * cmd | While of exp * cmd
            | Call of ident * ident * exp list | Return of exp
-           (*| Switch of exp * (int * cmd) list * cmd *)
            | CreateCOO of ident * exp * exp * exp
            | MatSumCOO of ident * exp * exp
            | MatSubCOO of ident * exp * exp
@@ -32,29 +30,25 @@ type state = ident -> entry option
 let empty_state = fun x -> None
 let lookup_state (s : state) (x : ident) : entry option = s x
 let update_state (s : state) (x : ident) (e : entry) : state = fun y -> if y = x then Some e else s y
-
 let lookup_coo (gamma : context) (x : ident) : coodecl option =
   match lookup_context gamma x with 
     | Some (COO cd) -> Some cd 
     | _ -> None
 let update_coo (gamma : context) (x : ident) (coo : coodecl) : context = update_context gamma x (COO coo)
 
-
-
 type stack = (state * ident) list
 
 type config = cmd * stack * state
-
 
 (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 (* coo support functions *)
 
 (*
 matrix used as example:
-1 7 0 0 
-0 2 8 0 
-5 0 3 9 
-0 6 0 4
+1 7 0 0   2   16
+0 2 8 0   2   20
+5 0 3 9 * 2 = 34
+0 6 0 4   2   20
 
 COO format of the matrix:
 rows = [0; 0; 1; 1; 2; 2; 2; 3; 3]
@@ -85,7 +79,6 @@ let rec get_data_array (content:int list): int list =
   | head :: tail -> (match head with
     | 0 -> get_data_array tail
     | _ -> head :: (get_data_array tail) )
-
 
 (*
 given an array (representing a 4x4 matrix) like: 
@@ -118,48 +111,94 @@ let parse_coo (num_rows:int) (num_cols:int) (v:int list): coodecl =
   {rows = Vector(get_rows_array v num_rows num_cols); cols = Vector(get_cols_array v num_cols); data = Vector(get_data_array v)}
 
 let get_rows_coo (c: coodecl): int list = 
-  match c.rows with Vector v -> v
+  match c.rows with 
+    | Vector v -> v
+    | _ -> []
 
 let get_cols_coo (c: coodecl): int list = 
-  match c.cols with Vector v -> v
+  match c.cols with 
+    | Vector v -> v
+    | _ -> []
   
 let get_data_coo (c: coodecl): int list = 
-  match c.data with Vector v -> v
+  match c.data with 
+    | Vector v -> v
+    | _ -> []
 
-let rec sum_op_aux (coo1: coodecl) (coo2 : coodecl) (ret : coodecl): coodecl option = 
+let rec sum_op_helper (coo1: coodecl) (coo2 : coodecl) (ret : coodecl): coodecl option = 
     match get_rows_coo coo1, get_rows_coo coo2, get_cols_coo coo1, get_cols_coo coo2 with
-    | [], [],[],[] -> Some {rows = Vector(rev (get_rows_coo ret)); cols = Vector(rev (get_cols_coo ret)); data = Vector(rev (get_data_coo ret))}
-    | [], rows2,[] , cols2-> Some {rows = Vector((rev (get_rows_coo ret))@ rows2); cols = Vector((rev (get_cols_coo ret)) @ cols2); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2))}
-    | rows1, [],cols1 , []-> Some {rows = Vector((rev (get_rows_coo ret))@ rows1); cols = Vector((rev (get_cols_coo ret)) @ cols1); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1))}
-    | r1 :: rest1_row, r2 :: rest2_row,   c1 :: rest1_col,   c2 :: rest2_col->
-        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) != 0) then sum_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) + (hd (get_data_coo coo2)))::(get_data_coo ret))})
-        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) = 0) then sum_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ret
-        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sum_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret))})
-        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sum_op_aux coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo2))::(get_data_coo ret))})
+    | [], [],[],[] -> Some {
+                          rows = Vector(rev (get_rows_coo ret)); 
+                          cols = Vector(rev (get_cols_coo ret)); 
+                          data = Vector(rev (get_data_coo ret))}
+    | [], rows2,[] , cols2-> Some {
+                          rows = Vector((rev (get_rows_coo ret)) @ rows2); 
+                          cols = Vector((rev (get_cols_coo ret)) @ cols2); 
+                          data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2))}
+    | rows1, [],cols1 , []-> Some {
+                          rows = Vector((rev (get_rows_coo ret)) @ rows1); 
+                          cols = Vector((rev (get_cols_coo ret)) @ cols1); 
+                          data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1))}
+    | r1 :: rest1_row, r2 :: rest2_row,   c1 :: rest1_col,   c2 :: rest2_col ->
+        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) != 0) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) + (hd (get_data_coo coo2)))::(get_data_coo ret))})
+        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) = 0) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ret
+        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret))})
+        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sum_op_helper coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo2))::(get_data_coo ret))})
 
         else None
     | _, _, _, _ -> None
 
-let rec sub_op_aux (coo1: coodecl) (coo2 : coodecl) (ret : coodecl): coodecl option = 
+let rec sub_op_helper (coo1: coodecl) (coo2 : coodecl) (ret : coodecl): coodecl option = 
     match get_rows_coo coo1, get_rows_coo coo2, get_cols_coo coo1, get_cols_coo coo2 with
     | [], [],[],[] -> Some {rows = Vector(rev (get_rows_coo ret)); cols = Vector(rev (get_cols_coo ret)); data = Vector(rev (get_data_coo ret))}
     | [], rows2,[] , cols2-> Some {rows = Vector((rev (get_rows_coo ret))@ rows2); cols = Vector((rev (get_cols_coo ret)) @ cols2); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2))}
     | rows1, [],cols1 , []-> Some {rows = Vector((rev (get_rows_coo ret))@ rows1); cols = Vector((rev (get_cols_coo ret)) @ cols1); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1))}
     | r1 :: rest1_row, r2 :: rest2_row,   c1 :: rest1_col,   c2 :: rest2_col->
-        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) != 0) then sub_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) - (hd (get_data_coo coo2)))::(get_data_coo ret))})
-        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) = 0) then sub_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ret
-        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sub_op_aux ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret))})
-        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sub_op_aux coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((-(hd (get_data_coo coo2)))::(get_data_coo ret))})
+        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) != 0) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) - (hd (get_data_coo coo2)))::(get_data_coo ret))})
+        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) = 0) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ret
+        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret))})
+        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sub_op_helper coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((-(hd (get_data_coo coo2)))::(get_data_coo ret))})
 
         else None
     | _, _, _, _ -> None
 
 let sum_op (c1: coodecl) (c2 : coodecl): coodecl option = 
-    sum_op_aux c1 c2 {rows = Vector([]); cols = Vector([]); data = Vector([])}
+    sum_op_helper c1 c2 {
+        rows = Vector([]); 
+        cols = Vector([]); 
+        data = Vector([])}
 
 let sub_op (c1: coodecl) (c2 : coodecl): coodecl option = 
-    sub_op_aux c1 c2 {rows = Vector([]); cols = Vector([]); data = Vector([])}
+    sub_op_helper c1 c2 {rows = Vector([]); cols = Vector([]); data = Vector([])}
 
+let get_val_from_idx (l : int list) (index : int) : int =
+  match nth_opt l index with
+  | Some v -> v
+  | None -> -1
+
+let empty_list (length : int) : int list = List.init length (fun x->0)
+
+let replace list idx elem  = List.mapi (fun i x -> if i = idx then elem else x) list 
+
+(* 
+Multiplication: Ax = y where A is a COO matrix and x is a generic Vector
+C implementation:
+coo_Ax(rows, cols, data, nnz, x, y) //nnz is the number of non-zeroes in the matrix
+  for (i = 0; i < nnz; i++) {
+    y[rows[i]] += data[i] * x[cols[i]] 
+  }
+*)
+let rec coo_Ax_mul_helper (c: coodecl) (x: int list) (y : int list) : int list = 
+  match get_rows_coo c, get_cols_coo c, get_data_coo c, y with
+  | r_head :: r_rest, c_head :: c_rest, d_head :: d_rest, y_head :: y_rest -> 
+        coo_Ax_mul_helper  ({rows = Vector(r_rest); cols = Vector(c_rest); data = Vector(d_rest)}) x (replace y r_head (((get_val_from_idx y r_head) + (d_head * (get_val_from_idx x c_head)))))
+  | [], [], [], _ -> y
+  | _ , _, _ , _ -> []
+   
+let coo_Ax_mul (c1: coodecl) (x: int list) : int list = 
+  let y = empty_list (get_size x)
+  in
+  coo_Ax_mul_helper c1 x y
   (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 
 let rec type_of (gamma : context) (e : exp) : typ option =
@@ -285,7 +324,18 @@ let rec run_config (con : config) : config =
 let run_prog (c : cmd) s =
   run_config (c, [], s)
 
-let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
+
+
+(* --------------------------------------------------------------- TEST --------------------------------------------------------------------------------- *)
+let r = [0; 0; 1; 1; 2; 2; 2; 3; 3]
+let c = [0; 1; 1; 2; 0; 2; 3; 1; 3]
+let d = [1; 7; 2; 8; 5; 3; 9; 6; 4]
+let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d}
+let x = [2; 2; 2; 2]
+let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
+
+
+  let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 
 let state1 = update_state (update_state state0 "x" (Val (IntVal 1)))
   "y" (Val (IntVal 2))
