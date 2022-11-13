@@ -333,9 +333,10 @@ let d = [1; 7; 2; 8; 5; 3; 9; 6; 4]
 let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d}
 let x = [2; 2; 2; 2]
 let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
+let x2 = [2; 1; 0; 1]
+let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (* should return [9; 2; 19; 10] *)
 
-
-  let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
+let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 
 let state1 = update_state (update_state state0 "x" (Val (IntVal 1)))
   "y" (Val (IntVal 2))
