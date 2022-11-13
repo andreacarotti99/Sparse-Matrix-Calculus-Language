@@ -13,10 +13,11 @@ type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | CreateCOO of ident * exp * exp * exp
            | MatSumCOO of ident * exp * exp
            | MatSubCOO of ident * exp * exp
+           | MatMulCOO of ident * exp * exp
 
 type coodecl = {rows : exp; cols : exp; data : exp}
 type value = IntVal of int | BoolVal of bool | VectorVal of int list | COOVal of coodecl
-type entry = Val of value | Fun of ident list * cmd | COO of coodecl
+type entry = Val of value | Fun of ident list * cmd | COO of coodecl | Vector of int list
 type typ = IntTy | BoolTy | VectorTy | COO of coodecl
 
 (* context *)
@@ -188,14 +189,14 @@ coo_Ax(rows, cols, data, nnz, x, y) //nnz is the number of non-zeroes in the mat
     y[rows[i]] += data[i] * x[cols[i]] 
   }
 *)
-let rec coo_Ax_mul_helper (c: coodecl) (x: int list) (y : int list) : int list = 
+let rec coo_Ax_mul_helper (c: coodecl) (x: int list) (y : int list) : int list option = 
   match get_rows_coo c, get_cols_coo c, get_data_coo c, y with
   | r_head :: r_rest, c_head :: c_rest, d_head :: d_rest, y_head :: y_rest -> 
         coo_Ax_mul_helper  ({rows = Vector(r_rest); cols = Vector(c_rest); data = Vector(d_rest)}) x (replace y r_head (((get_val_from_idx y r_head) + (d_head * (get_val_from_idx x c_head)))))
-  | [], [], [], _ -> y
-  | _ , _, _ , _ -> []
+  | [], [], [], _ -> Some y
+  | _ , _, _ , _ -> None
    
-let coo_Ax_mul (c1: coodecl) (x: int list) : int list = 
+let coo_Ax_mul (c1: coodecl) (x: int list) : int list option = 
   let y = empty_list (get_size x)
   in
   coo_Ax_mul_helper c1 x y
@@ -314,6 +315,12 @@ let rec step_cmd (c : cmd) (k : stack) (s : state) : config option =
                                                 |Some res -> Some (Skip, k, update_state s x (COO res) )
                                                 |_ ->None
           | _ -> None)
+  | MatMulCOO (x, v1, v2) ->
+    (match eval_exp v1 s, eval_exp v2 s with
+      | Some (COOVal c1), Some (VectorVal vec) -> (match (coo_Ax_mul c1 vec) with
+                                                | Some res -> Some (Skip, k, update_state s x (Vector res))
+                                                | _ -> None )
+      | _ -> None)
 
 let rec run_config (con : config) : config =
   let (c, k, s) = con in
