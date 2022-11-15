@@ -375,7 +375,7 @@ let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (* should return [9; 2; 19
 
 
 let test_col_order = get_col_order (get_cols_coo decl) [] 0 0
-let test_transpose = get_matrix_transpose decl
+let test_transpose = get_matrix_transpose decl3
 
 
 (*
