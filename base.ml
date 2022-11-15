@@ -200,6 +200,18 @@ let coo_Ax_mul (c1: coodecl) (x: int list) : int list option =
   let y = empty_list (get_size x)
   in
   coo_Ax_mul_helper c1 x y
+
+
+let rec trace_coo_fun (a : int list) (b : int list) (c : int list): int = 
+  match a, b, c with
+  | h_a :: tail_a, h_b :: tail_b, h_c :: tail_c -> if h_a = h_b then (trace_coo_fun tail_a tail_b tail_c) + h_c else (trace_coo_fun tail_a tail_b tail_c)
+  |[], [], [] -> 0 
+  | _ -> 0
+
+let trace_coo (c: coodecl): int = trace_coo_fun (get_rows_coo c) (get_cols_coo c) (get_data_coo c)
+
+
+
   (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 
 let rec type_of (gamma : context) (e : exp) : typ option =
@@ -231,10 +243,9 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
   | Skip -> true
   | IfC (e, c1, c2) -> type_of gamma e = Some BoolTy && typecheck_cmd gamma c1 && typecheck_cmd gamma c2
   | While (e, c) -> type_of gamma e = Some BoolTy && typecheck_cmd gamma c
-  | CreateCOO(x, num_row, num_col, content) ->(match lookup_coo gamma x, type_of gamma num_row, type_of gamma num_col,type_of gamma content with
+  | CreateCOO(x, num_row, num_col, content) -> (match lookup_coo gamma x, type_of gamma num_row, type_of gamma num_col,type_of gamma content with
                                               | Some _, Some IntTy, Some IntTy, Some VectorTy->true
-                                              |_,_,_,_ ->false
-  )
+                                              |_,_,_,_ -> false)
 
 
 
@@ -342,14 +353,15 @@ let x = [2; 2; 2; 2]
 let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
 let x2 = [2; 1; 0; 1]
 let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (* should return [9; 2; 19; 10] *)
-
 let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
-
-let state1 = update_state (update_state state0 "x" (Val (IntVal 1)))
-  "y" (Val (IntVal 2))
-  
+let state1 = update_state (update_state state0 "x" (Val (IntVal 1))) "y" (Val (IntVal 2))
 let config1 =( Seq(Seq(CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]),CreateCOO("s",Num 4, Num 4, Vector [1; 7; 3; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])),MatSubCOO("c",Var "z",Var "s")), [(state0, "x")], state1)
 let config2 = (CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]), [(state0, "x")], state1)
+
+let config3 = (Seq(Seq(Assign("k", Vector x2), CreateCOO("l",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])), MatMulCOO("r", Var "l", Var "k")), [(state0, "x")], state1)
+
+let test_coo_trace = trace_coo decl 
+
 let prog1 = Call ("x", "f", [Num 1; Num 2])
 
 let (res_c, res_k, res_s) = run_config config1;;
