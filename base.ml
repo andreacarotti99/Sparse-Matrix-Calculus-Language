@@ -208,7 +208,7 @@ let coo_Ax_mul (c1: coodecl) (x: int list) : int list option =
 
 
 let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (i: int) : int list =
-  if List.nth col_list ((List.length col_list )-1) < searched_pos then res
+  if List.length col_list = List.length res then res
   else if (length col_list) <= i then get_col_order col_list (res) (searched_pos+1) (0) 
   else if List.nth col_list i = searched_pos then get_col_order col_list (res @ [i]) searched_pos (i +1)
   else get_col_order col_list (res) searched_pos (i +1)
@@ -361,7 +361,13 @@ let run_prog (c : cmd) s =
 let r = [0; 0; 1; 1; 2; 2; 2; 3; 3]
 let c = [0; 1; 1; 2; 0; 2; 3; 1; 3]
 let d = [1; 7; 2; 8; 5; 3; 9; 6; 4]
+let r3 = [0; 0; 1; 2]
+let c3 = [0; 1; 1; 0]
+
+let d3 = [2; 5; 1; 8]
 let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d}
+
+let decl3: coodecl = { rows = Vector r3; cols = Vector c3; data = Vector d3}
 let x = [2; 2; 2; 2]
 let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
 let x2 = [2; 1; 0; 1]
