@@ -55,6 +55,11 @@ COO format of the matrix:
 rows = [0; 0; 1; 1; 2; 2; 2; 3; 3]
 cols = [0; 1; 1; 2; 0; 2; 3; 1; 3]
 data = [1; 7; 2; 8; 5; 3; 9; 6; 4]
+
+Transposted
+rows = [0; 0; 1; 1; 1; 2; 2]
+cols = [0; 2; 0; 1; 3; 2; 3]
+data = []
 *)
 
 (*returns the size of the list*)
@@ -202,6 +207,7 @@ let coo_Ax_mul (c1: coodecl) (x: int list) : int list option =
   coo_Ax_mul_helper c1 x y
 
 
+
 let rec trace_coo_fun (a : int list) (b : int list) (c : int list): int = 
   match a, b, c with
   | h_a :: tail_a, h_b :: tail_b, h_c :: tail_c -> if h_a = h_b then (trace_coo_fun tail_a tail_b tail_c) + h_c else (trace_coo_fun tail_a tail_b tail_c)
@@ -212,6 +218,22 @@ let trace_coo (c: coodecl): int = trace_coo_fun (get_rows_coo c) (get_cols_coo c
 
 
 
+let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (i: int) : int list =
+  if List.nth col_list ((List.length col_list )-1) < searched_pos then res
+  else if (length col_list) <= i then get_col_order col_list (res) (searched_pos+1) (0) 
+  else if List.nth col_list i = searched_pos then get_col_order col_list (res @ [i]) searched_pos (i +1)
+  else get_col_order col_list (res) searched_pos (i +1)
+
+(*pass new positions for its elements*)
+let rec re_order_vector (new_order: int list) (v1: int list) (res: int list): int list =
+  match new_order with
+  | [] -> res
+  | head::tail -> re_order_vector tail v1 (res @ [(nth v1 head)])
+
+let rec get_matrix_transpose (c: coodecl): coodecl =
+  ({rows=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); cols = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
+
+  
   (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 
 let rec type_of (gamma : context) (e : exp) : typ option =
@@ -316,15 +338,15 @@ let rec step_cmd (c : cmd) (k : stack) (s : state) : config option =
           | _ -> None)
   | MatSumCOO (x, v1, v2) -> 
       (match eval_exp v1 s,eval_exp v2 s with
-          | Some( COOVal c1), Some(COOVal c2)-> match (sum_op c1 c2) with
+          | Some( COOVal c1), Some(COOVal c2)->( match (sum_op c1 c2) with
                                                 |Some res -> Some (Skip, k, update_state s x (COO res) )
-                                                |_ ->None
+                                                |_ ->None)
           | _ -> None)
   | MatSubCOO (x, v1, v2) -> 
       (match eval_exp v1 s,eval_exp v2 s with
-          | Some( COOVal c1), Some(COOVal c2)-> match (sub_op c1 c2) with
+          | Some( COOVal c1), Some(COOVal c2)->( match (sub_op c1 c2) with
                                                 |Some res -> Some (Skip, k, update_state s x (COO res) )
-                                                |_ ->None
+                                                |_ ->None)
           | _ -> None)
   | MatMulCOO (x, v1, v2) ->
     (match eval_exp v1 s, eval_exp v2 s with
@@ -353,6 +375,11 @@ let x = [2; 2; 2; 2]
 let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
 let x2 = [2; 1; 0; 1]
 let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (* should return [9; 2; 19; 10] *)
+let test_col_order = get_col_order (get_cols_coo decl) [] 0 0
+let test_transpose = get_matrix_transpose decl
+
+
+(*
 let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 let state1 = update_state (update_state state0 "x" (Val (IntVal 1))) "y" (Val (IntVal 2))
 let config1 =( Seq(Seq(CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]),CreateCOO("s",Num 4, Num 4, Vector [1; 7; 3; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])),MatSubCOO("c",Var "z",Var "s")), [(state0, "x")], state1)
@@ -371,7 +398,7 @@ lookup_state res_s "c";;
 
 let (res_c, res_k, res_s) = run_config config2;;
 lookup_state res_s "z";; (* should return Some (Val (IntVal 3)) *)
-(*
+
 let (res_c, res_k, res_s) = run_prog prog1 state0;;
 lookup_state res_s "x";;  should return Some (Val (IntVal 3))
 lookup_state res_s "y";; should return None *)
