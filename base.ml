@@ -215,9 +215,13 @@ let rec trace_coo_fun (a : int list) (b : int list) (c : int list): int =
   | _ -> 0
 
 let trace_coo (c: coodecl): int = trace_coo_fun (get_rows_coo c) (get_cols_coo c) (get_data_coo c)
-
+(*
 let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (i: int) : int list =
   if List.nth col_list ((List.length col_list )-1) < searched_pos then res
+*)
+
+let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (i: int) : int list =
+  if List.length col_list = List.length res then res
   else if (length col_list) <= i then get_col_order col_list (res) (searched_pos+1) (0) 
   else if List.nth col_list i = searched_pos then get_col_order col_list (res @ [i]) searched_pos (i +1)
   else get_col_order col_list (res) searched_pos (i +1)
@@ -231,8 +235,7 @@ let rec re_order_vector (new_order: int list) (v1: int list) (res: int list): in
 let rec get_coo_transpose (c: coodecl): coodecl =
   ({cols=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); rows = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
 
-
-
+(*
 let rec coo_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl): coodecl option = 
   match get_rows_coo c1, get_cols_coo c1, get_data_coo c1 with
     | r1_h :: r1_tail, c1_h :: c1_tail, d1_h :: d1_tail -> (
@@ -250,14 +253,26 @@ let rec coo_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl): coodec
     )
     | [], [], [] -> Some {rows = Vector(get_rows_coo ret); cols = Vector(get_cols_coo ret); data = Vector(get_data_coo ret)}
     | _ -> None
+*)
+
+let max_number_list lst = List.fold_left max 0 lst
+
+
+(*
+let rec coo_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl) : coodecl option = 
+  match get_rows_coo c1, get_cols_coo c1, get_data_coo c1, get_rows_coo c2, get_cols_coo c2, get_data_coo c2 with
+  | r1_h :: r1_tail, c1_h :: c1_tail, d1_h :: d1_tail, r2_h :: r2_tail, c2_h :: c2_tail, d2_h :: d2_tail -> (
+    if 
+  )
 
 let coo_matrix_mul (c1: coodecl) (c2: coodecl) (ret: coodecl): coodecl option = 
   let c2' = get_coo_transpose c2 in
   coo_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([])}
-
-
-
-  (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
+*)
+let rec get_matrix_transpose (c: coodecl): coodecl =
+  ({rows=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); cols = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
+  
+(* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 
 let rec type_of (gamma : context) (e : exp) : typ option =
   match e with
@@ -393,16 +408,29 @@ let run_prog (c : cmd) s =
 let r = [0; 0; 1; 1; 2; 2; 2; 3; 3]
 let c = [0; 1; 1; 2; 0; 2; 3; 1; 3]
 let d = [1; 7; 2; 8; 5; 3; 9; 6; 4]
+let r2 = [0; 0; 1; 1]
+let c2 = [1; 2; 0; 2]
+let d2 = [10; 12; 1; 2]
+let r3 = [0; 0; 1; 2]
+let c3 = [0; 1; 1; 0]
+let d3 = [2; 5; 1; 8]
 let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d}
 let empty_decl : coodecl = {rows = Vector []; cols = Vector []; data = Vector []}
+let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2}
+let decl3: coodecl = { rows = Vector r3; cols = Vector c3; data = Vector d3}
+(*let test_coo_matrix_mul = coo_matrix_mul decl2 decl3 empty_decl*)
 let x = [2; 2; 2; 2]
 let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
 let x2 = [2; 1; 0; 1]
 let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (* should return [9; 2; 19; 10] *)
 let test_col_order = get_col_order (get_cols_coo decl) [] 0 0
 let test_transpose = get_coo_transpose decl
+let test_col_order = get_col_order (get_cols_coo decl) [] 0 0
+let test_transpose = get_matrix_transpose decl3
 
 
+(*
+let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 let r2 = [0; 0; 1; 1]
 let c2 = [1; 2; 0; 2]
 let d2 = [10; 12; 1; 2]
@@ -413,7 +441,6 @@ let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2}
 let decl3 : coodecl = {rows = Vector r3; cols = Vector c3; data = Vector d3}
 let test_coo_matrix_mul = coo_matrix_mul_2 decl2 decl3 empty_decl
 
-(*
 let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 let state1 = update_state (update_state state0 "x" (Val (IntVal 1))) "y" (Val (IntVal 2))
 let config1 =( Seq(Seq(CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]),CreateCOO("s",Num 4, Num 4, Vector [1; 7; 3; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])),MatSubCOO("c",Var "z",Var "s")), [(state0, "x")], state1)
@@ -435,5 +462,7 @@ lookup_state res_s "z";; (* should return Some (Val (IntVal 3)) *)
 
 let (res_c, res_k, res_s) = run_prog prog1 state0;;
 lookup_state res_s "x";;  should return Some (Val (IntVal 3))
-lookup_state res_s "y";; should return None *)
+lookup_state res_s "y";; should return None 
+
+*)
  
