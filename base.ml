@@ -340,9 +340,6 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
       (match lookup_context gamma "__ret",type_of gamma e with
        | Some ret_ty, Some es_ty -> ret_ty = es_ty
        | _,_ -> false)
-  | CreateCOO(x, num_row, num_col, content) -> (match lookup_coo gamma x, type_of gamma num_row, type_of gamma num_col,type_of gamma content with
-                                              | Some _, Some IntTy, Some IntTy, Some VectorTy->true
-                                              |_,_,_,_ -> false)
 
 
 
