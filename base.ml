@@ -17,8 +17,9 @@ type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
 
 type coodecl = {rows : exp; cols : exp; data : exp}
 type value = IntVal of int | BoolVal of bool | VectorVal of int list | COOVal of coodecl
-type entry = Val of value | Fun of ident list * cmd | COO of coodecl | Vector of int list
-type typ = IntTy | BoolTy | VectorTy | COO of coodecl
+type entry = Val of value | Fun of ident list * cmd 
+            | COO of coodecl | Vector of int list 
+type typ = IntTy | BoolTy | VectorTy | COOTy | FunTy of typ * typ list
 
 (* context *)
 type context = ident -> typ option
@@ -31,11 +32,7 @@ type state = ident -> entry option
 let empty_state = fun x -> None
 let lookup_state (s : state) (x : ident) : entry option = s x
 let update_state (s : state) (x : ident) (e : entry) : state = fun y -> if y = x then Some e else s y
-let lookup_coo (gamma : context) (x : ident) : coodecl option =
-  match lookup_context gamma x with 
-    | Some (COO cd) -> Some cd 
-    | _ -> None
-let update_coo (gamma : context) (x : ident) (coo : coodecl) : context = update_context gamma x (COO coo)
+
 
 type stack = (state * ident) list
 
@@ -245,6 +242,22 @@ let rec type_of (gamma : context) (e : exp) : typ option =
        | _, _ -> None)
   | Vector v -> Some VectorTy
   
+(*type_of a given list*)
+let rec type_of_list (gamma: context) (es: exp list): typ list option = 
+  match es with
+  |[] -> Some []
+  | e :: rest -> (match type_of gamma e, type_of_list gamma rest with
+                  | Some v, Some vs -> Some (v :: vs)
+                  | _, _ -> None)
+
+(* checks if in list they have same type*)
+let rec typecheck_lists (gamma : context) (t1 : typ list) (t2 : typ list) : bool =
+  match t1, t2 with
+  | [], [] -> true
+  | e1 :: e1_rest, e2 :: e2_rest -> e1 = e2 && typecheck_lists gamma e1_rest e2_rest
+  | _, _ -> false
+
+
 let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
   match c with
   | Assign (i, e) ->
@@ -255,10 +268,30 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
   | Skip -> true
   | IfC (e, c1, c2) -> type_of gamma e = Some BoolTy && typecheck_cmd gamma c1 && typecheck_cmd gamma c2
   | While (e, c) -> type_of gamma e = Some BoolTy && typecheck_cmd gamma c
-  | CreateCOO(x, num_row, num_col, content) ->(match lookup_coo gamma x, type_of gamma num_row, type_of gamma num_col,type_of gamma content with
-                                              | Some _, Some IntTy, Some IntTy, Some VectorTy->true
+  | CreateCOO(x, num_row, num_col, content) ->(match lookup_context gamma x, type_of gamma num_row, type_of gamma num_col,type_of gamma content with
+                                              | Some COOTy, Some IntTy, Some IntTy, Some VectorTy->true
                                               |_,_,_,_ ->false
   )
+  | MatSumCOO(x,m1,m2) | MatSubCOO(x,m1,m2) | MatMulCOO(x,m1,m2)-> (match lookup_context gamma x, type_of gamma m1, type_of gamma m2 with
+                            | Some COOTy, Some COOTy, Some COOTy->true
+                            |_,_,_ ->false
+  )
+  | Call(x, f, es) -> (match lookup_context gamma x,lookup_context gamma f  with
+                    | Some type_x, Some type_f-> (match type_f with
+                                                  |FunTy(ret_ty, args_ty) -> (if ret_ty != type_x then false
+                                                                              else match (type_of_list gamma es) with
+                                                                                |Some es_ty ->typecheck_lists gamma args_ty es_ty
+                                                                                |_ -> false
+                                                                              )
+                                                  |_ -> false
+
+                    )
+                    | _,_ -> false
+                    )
+  | Return e ->
+      (match lookup_context gamma "__ret",type_of gamma e with
+       | Some ret_ty, Some es_ty -> ret_ty = es_ty
+       | _,_ -> false)
 
 
 
