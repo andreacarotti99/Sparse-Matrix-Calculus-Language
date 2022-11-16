@@ -15,7 +15,7 @@ type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | MatSubCOO of ident * exp * exp
            | MatMulCOO of ident * exp * exp
 
-type coodecl = {rows : exp; cols : exp; data : exp}
+type coodecl = {rows : exp; cols : exp; data : exp; n_rows: int; n_cols: int}
 type value = IntVal of int | BoolVal of bool | VectorVal of int list | COOVal of coodecl
 type entry = Val of value | Fun of ident list * cmd 
             | COO of coodecl | Vector of int list 
@@ -111,7 +111,7 @@ let rec get_rows_array (content:int list) (num_rows: int) (num_cols:int): int li
       
 
 let parse_coo (num_rows:int) (num_cols:int) (v:int list): coodecl =
-  {rows = Vector(get_rows_array v num_rows num_cols); cols = Vector(get_cols_array v num_cols); data = Vector(get_data_array v)}
+  {rows = Vector(get_rows_array v num_rows num_cols); cols = Vector(get_cols_array v num_cols); data = Vector(get_data_array v); n_rows = num_rows; n_cols = num_cols}
 
 let get_rows_coo (c: coodecl): int list = 
   match c.rows with 
@@ -133,46 +133,46 @@ let rec sum_op_helper (coo1: coodecl) (coo2 : coodecl) (ret : coodecl): coodecl 
     | [], [],[],[] -> Some {
                           rows = Vector(rev (get_rows_coo ret)); 
                           cols = Vector(rev (get_cols_coo ret)); 
-                          data = Vector(rev (get_data_coo ret))}
+                          data = Vector(rev (get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols}
     | [], rows2,[] , cols2-> Some {
                           rows = Vector((rev (get_rows_coo ret)) @ rows2); 
                           cols = Vector((rev (get_cols_coo ret)) @ cols2); 
-                          data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2))}
+                          data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2)); n_rows = ret.n_rows; n_cols = ret.n_cols}
     | rows1, [],cols1 , []-> Some {
                           rows = Vector((rev (get_rows_coo ret)) @ rows1); 
                           cols = Vector((rev (get_cols_coo ret)) @ cols1); 
-                          data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1))}
+                          data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1)); n_rows = ret.n_rows; n_cols = ret.n_cols}
     | r1 :: rest1_row, r2 :: rest2_row,   c1 :: rest1_col,   c2 :: rest2_col ->
-        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) != 0) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) + (hd (get_data_coo coo2)))::(get_data_coo ret))})
-        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) = 0) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ret
-        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret))})
-        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sum_op_helper coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo2))::(get_data_coo ret))})
+        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) != 0) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1)); n_rows = coo1.n_rows; n_cols = coo1.n_cols}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2)); n_rows = coo2.n_rows; n_cols = coo2.n_cols} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) + (hd (get_data_coo coo2)))::(get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols})
+        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) + (hd (get_data_coo coo2)) = 0) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1)); n_rows = coo1.n_rows; n_cols = coo1.n_cols}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2)); n_rows = coo2.n_rows; n_cols = coo2.n_cols} ) ret
+        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sum_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1)); n_rows = coo1.n_rows; n_cols = coo1.n_cols}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols})
+        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sum_op_helper coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2));  n_rows = coo2.n_rows; n_cols = coo2.n_cols} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo2))::(get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols})
 
         else None
     | _, _, _, _ -> None
 
 let rec sub_op_helper (coo1: coodecl) (coo2 : coodecl) (ret : coodecl): coodecl option = 
     match get_rows_coo coo1, get_rows_coo coo2, get_cols_coo coo1, get_cols_coo coo2 with
-    | [], [],[],[] -> Some {rows = Vector(rev (get_rows_coo ret)); cols = Vector(rev (get_cols_coo ret)); data = Vector(rev (get_data_coo ret))}
-    | [], rows2,[] , cols2-> Some {rows = Vector((rev (get_rows_coo ret))@ rows2); cols = Vector((rev (get_cols_coo ret)) @ cols2); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2))}
-    | rows1, [],cols1 , []-> Some {rows = Vector((rev (get_rows_coo ret))@ rows1); cols = Vector((rev (get_cols_coo ret)) @ cols1); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1))}
+    | [], [],[],[] -> Some {rows = Vector(rev (get_rows_coo ret)); cols = Vector(rev (get_cols_coo ret)); data = Vector(rev (get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols}
+    | [], rows2,[] , cols2-> Some {rows = Vector((rev (get_rows_coo ret))@ rows2); cols = Vector((rev (get_cols_coo ret)) @ cols2); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo2)); n_rows = ret.n_rows; n_cols = ret.n_cols}
+    | rows1, [],cols1 , []-> Some {rows = Vector((rev (get_rows_coo ret))@ rows1); cols = Vector((rev (get_cols_coo ret)) @ cols1); data = Vector((rev (get_data_coo ret)) @ (get_data_coo coo1)); n_rows = ret.n_rows; n_cols = ret.n_cols}
     | r1 :: rest1_row, r2 :: rest2_row,   c1 :: rest1_col,   c2 :: rest2_col->
-        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) != 0) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) - (hd (get_data_coo coo2)))::(get_data_coo ret))})
-        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) = 0) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} ) ret
-        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1))}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret))})
-        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sub_op_helper coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2))} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((-(hd (get_data_coo coo2)))::(get_data_coo ret))})
+        if      (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) != 0) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1)); n_rows = coo1.n_rows; n_cols = coo1.n_cols}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2)); n_rows = coo2.n_rows; n_cols = coo2.n_cols} ) ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector(((hd (get_data_coo coo1)) - (hd (get_data_coo coo2)))::(get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols})
+        else if (r1 = r2 && c1 = c2 && (hd (get_data_coo coo1)) - (hd (get_data_coo coo2)) = 0) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1)); n_rows = coo1.n_rows; n_cols = coo1.n_cols}) ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2)); n_rows = coo2.n_rows; n_cols = coo2.n_cols} ) ret
+        else if ((r1 = r2 && c1 < c2)||(r1<r2)) then sub_op_helper ({rows = Vector(rest1_row); cols = Vector(rest1_col); data = Vector(tl (get_data_coo coo1)); n_rows = coo1.n_rows; n_cols = coo1.n_cols}) coo2 ({rows = Vector(r1::(get_rows_coo ret)); cols = Vector(c1::(get_cols_coo ret)); data = Vector((hd (get_data_coo coo1))::(get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols})
+        else if ((r1 = r2 && c1 > c2)|| r2<r1) then sub_op_helper coo1 ({rows = Vector(rest2_row); cols = Vector(rest2_col); data = Vector(tl (get_data_coo coo2)); n_rows = coo2.n_rows; n_cols = coo2.n_cols} )({rows = Vector(r2::(get_rows_coo ret)); cols = Vector(c2::(get_cols_coo ret)); data = Vector((-(hd (get_data_coo coo2)))::(get_data_coo ret)); n_rows = ret.n_rows; n_cols = ret.n_cols})
 
         else None
     | _, _, _, _ -> None
 
 let sum_op (c1: coodecl) (c2 : coodecl): coodecl option = 
-    sum_op_helper c1 c2 {
-        rows = Vector([]); 
-        cols = Vector([]); 
-        data = Vector([])}
+  if (c1.n_cols = c2.n_cols && c1.n_rows = c2.n_rows) then sum_op_helper c1 c2 {rows = Vector([]); cols = Vector([]); data = Vector([]); n_rows = c1.n_rows; n_cols = c2.n_cols}
+  else None
 
 let sub_op (c1: coodecl) (c2 : coodecl): coodecl option = 
-    sub_op_helper c1 c2 {rows = Vector([]); cols = Vector([]); data = Vector([])}
+  if (c1.n_cols = c2.n_cols && c1.n_rows = c2.n_rows) then sub_op_helper c1 c2 {rows = Vector([]); cols = Vector([]); data = Vector([]); n_rows = c1.n_rows; n_cols = c2.n_cols}
+  else None
+    
 
 let get_val_from_idx (l : int list) (index : int) : int =
   match nth_opt l index with
@@ -194,15 +194,16 @@ coo_Ax(rows, cols, data, nnz, x, y) //nnz is the number of non-zeroes in the mat
 let rec coo_Ax_mul_helper (c: coodecl) (x: int list) (y : int list) : int list option = 
   match get_rows_coo c, get_cols_coo c, get_data_coo c, y with
   | r_head :: r_rest, c_head :: c_rest, d_head :: d_rest, y_head :: y_rest -> 
-        coo_Ax_mul_helper  ({rows = Vector(r_rest); cols = Vector(c_rest); data = Vector(d_rest)}) x (replace y r_head (((get_val_from_idx y r_head) + (d_head * (get_val_from_idx x c_head)))))
+        coo_Ax_mul_helper  ({rows = Vector(r_rest); cols = Vector(c_rest); data = Vector(d_rest); n_rows = c.n_rows; n_cols = c.n_cols}) x (replace y r_head (((get_val_from_idx y r_head) + (d_head * (get_val_from_idx x c_head)))))
   | [], [], [], _ -> Some y
   | _ , _, _ , _ -> None
    
 let coo_Ax_mul (c1: coodecl) (x: int list) : int list option = 
-  let y = empty_list (get_size x)
-  in
-  coo_Ax_mul_helper c1 x y
-
+  if c1.n_cols = (get_size x) then (
+    let y = empty_list (get_size x)
+    in
+    coo_Ax_mul_helper c1 x y
+  )else None
 
 
 let rec trace_coo_fun (a : int list) (b : int list) (c : int list): int = 
@@ -218,7 +219,7 @@ let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (
 *)
 
 let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (i: int) : int list =
-  if List.length col_list = List.length res then res
+  if get_size col_list = get_size res then res
   else if (length col_list) <= i then get_col_order col_list (res) (searched_pos+1) (0) 
   else if List.nth col_list i = searched_pos then get_col_order col_list (res @ [i]) searched_pos (i +1)
   else get_col_order col_list (res) searched_pos (i +1)
@@ -230,7 +231,7 @@ let rec re_order_vector (new_order: int list) (v1: int list) (res: int list): in
   | head::tail -> re_order_vector tail v1 (res @ [(nth v1 head)])
 
 let rec get_coo_transpose (c: coodecl): coodecl =
-  ({cols=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); rows = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
+  ({cols=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); rows = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) [])); n_rows = c.n_cols; n_cols = c.n_rows})
 
 (*
 let rec coo_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl): coodecl option = 
@@ -265,10 +266,15 @@ let rec coo_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl) : coode
 let coo_matrix_mul (c1: coodecl) (c2: coodecl) (ret: coodecl): coodecl option = 
   let c2' = get_coo_transpose c2 in
   coo_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([])}
+
 *)
-let rec get_matrix_transpose (c: coodecl): coodecl =
-  ({rows=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); cols = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
+
+let coo_density (c:coodecl) : float = float_of_int(get_size (get_cols_coo c))/.float_of_int(c.n_cols * c.n_rows)
+
+let coo_sparsity (c:coodecl) : float = float_of_int(c.n_cols * c.n_rows - (get_size (get_cols_coo c)))/. float_of_int(c.n_cols * c.n_rows)
   
+
+
 (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 
 let rec type_of (gamma : context) (e : exp) : typ option =
@@ -448,20 +454,22 @@ let d2 = [10; 12; 1; 2]
 let r3 = [0; 0; 1; 2]
 let c3 = [0; 1; 1; 0]
 let d3 = [2; 5; 1; 8]
-let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d}
-let empty_decl : coodecl = {rows = Vector []; cols = Vector []; data = Vector []}
-let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2}
-let decl3: coodecl = { rows = Vector r3; cols = Vector c3; data = Vector d3}
-(*let test_coo_matrix_mul = coo_matrix_mul decl2 decl3 empty_decl*)
-let x = [2; 2; 2; 2]
-let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
-let x2 = [2; 1; 0; 1]
-let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (* should return [9; 2; 19; 10] *)
-let test_col_order = get_col_order (get_cols_coo decl) [] 0 0
-let test_transpose = get_coo_transpose decl
-let test_col_order = get_col_order (get_cols_coo decl) [] 0 0
-let test_transpose = get_matrix_transpose decl3
+let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d; n_rows = 4; n_cols = 4}
+let empty_decl : coodecl = {rows = Vector []; cols = Vector []; data = Vector []; n_rows = 0; n_cols = 0}
+let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2; n_rows = 2; n_cols = 3}
+let decl3: coodecl = { rows = Vector r3; cols = Vector c3; data = Vector d3; n_rows = 3; n_cols = 2}
 
+(*
+let test_coo_matrix_mul = coo_matrix_mul decl2 decl3 empty_decl
+let x = [2; 2; 2; 2]
+let test_multiplication_Ax_COO = coo_Ax_mul decl x should return [16; 20; 34; 20]
+let x2 = [2; 1; 0; 1]
+ let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 should return [9; 2; 19; 10]
+let test_col_order = get_col_order ((get_cols_coo decl) [] 0 0)
+let test_transpose = get_coo_transpose decl
+let test_col_order = get_col_order ((get_cols_coo decl) [] 0 0)
+
+*)
 
 (*
 let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
