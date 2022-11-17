@@ -5,7 +5,7 @@ type ident = string
 type exp = Var of ident | Num of int | Add of exp * exp | Sub of exp * exp
          | Bool of bool | And of exp * exp | Or of exp * exp
          | Eq of exp * exp
-         | Vector of int list
+         | Vector of (int list)
           
 type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | IfC of exp * cmd * cmd | While of exp * cmd
@@ -16,11 +16,9 @@ type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | MatMulCOO of ident * exp * exp
 
 type coodecl = {rows : exp; cols : exp; data : exp; n_rows: int; n_cols: int}
-type value = IntVal of int | BoolVal of bool | VectorVal of int list | COOVal of coodecl
+type value = IntVal of int | BoolVal of bool | VectorVal of (int list) | COOVal of coodecl
 type entry = Val of value | Fun of ident list * cmd 
-            | COO of coodecl | Vector of int list 
-type typ = IntTy | BoolTy | VectorTy | COOTy | FunTy of typ * typ list
-
+type typ = IntTy | BoolTy | VectorTy | COOTy | FunTy of typ * (typ list)
 (* context *)
 type context = ident -> typ option
 let empty_context = fun x -> None
@@ -352,7 +350,6 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
 let rec eval_exp (e : exp) (s : state) : value option =
   match e with
   | Var x -> (match lookup_state s x with Some (Val v) -> Some v 
-              | Some( COO c) -> Some(COOVal c)
               | _ -> None)
   | Num i -> Some (IntVal i)
   | Add (e1, e2) -> (match eval_exp e1 s, eval_exp e2 s with
@@ -412,24 +409,24 @@ let rec step_cmd (c : cmd) (k : stack) (s : state) : config option =
                  | _, _ -> None)
   | CreateCOO (x, num_row, num_col, content) -> 
       (match eval_exp content s,eval_exp num_row s,eval_exp num_col s with
-          | Some( VectorVal v ), Some(IntVal r),Some(IntVal c)-> Some (Skip, k, update_state s x (COO (parse_coo r c v)) )
+          | Some( VectorVal v ), Some(IntVal r),Some(IntVal c)-> Some (Skip, k, update_state s x (Val(COOVal (parse_coo r c v))) )
           | _ -> None)
   | MatSumCOO (x, v1, v2) -> 
       (match eval_exp v1 s,eval_exp v2 s with
           | Some( COOVal c1), Some(COOVal c2)->( match (sum_op c1 c2) with
-                                                |Some res -> Some (Skip, k, update_state s x (COO res) )
+                                                |Some res -> Some (Skip, k, update_state s x (Val(COOVal res)) )
                                                 |_ ->None)
           | _ -> None)
   | MatSubCOO (x, v1, v2) -> 
       (match eval_exp v1 s,eval_exp v2 s with
           | Some( COOVal c1), Some(COOVal c2)->( match (sub_op c1 c2) with
-                                                |Some res -> Some (Skip, k, update_state s x (COO res) )
+                                                |Some res -> Some (Skip, k, update_state s x (Val(COOVal res)) )
                                                 |_ ->None)
           | _ -> None)
   | MatMulCOO (x, v1, v2) ->
     (match eval_exp v1 s, eval_exp v2 s with
       | Some (COOVal c1), Some (VectorVal vec) -> (match (coo_Ax_mul c1 vec) with
-                                                | Some res -> Some (Skip, k, update_state s x (Vector res))
+                                                | Some res -> Some (Skip, k, update_state s x (Val(VectorVal res)))
                                                 | _ -> None )
       | _ -> None)
 
