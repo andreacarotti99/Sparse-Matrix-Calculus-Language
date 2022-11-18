@@ -451,7 +451,7 @@ let rec eval_exp (e : exp) (s : state) : value option =
                     |Some (COOVal c)->  Some(FloatVal (coo_sparsity c))  
                     |_ ->None)
   | DensityCOO e -> (match eval_exp e s with
-                    |Some (COOVal c)->  Some(FloatVal (coo_sparsity c))  
+                    |Some (COOVal c)->  Some(FloatVal (coo_density c))  
                     |_ ->None)                  
     
 
@@ -596,14 +596,18 @@ let d3 = [2; 5; 1; 8]
 let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2; n_rows = 2; n_cols = 3}
 let decl3 : coodecl = {rows = Vector r3; cols = Vector c3; data = Vector d3; n_rows = 3; n_cols = 2}
 (*let test_coo_partial_matrix_mul = coo_partial_matrix_mul decl2 decl3 empty_decl*)
-(*
+
 let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 let state1 = update_state (update_state state0 "x" (Val (IntVal 1))) "y" (Val (IntVal 2))
 let config1 =( Seq(Seq(CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]),CreateCOO("s",Num 4, Num 4, Vector [1; 7; 3; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])),MatSubCOO("c",Var "z",Var "s")), [(state0, "x")], state1)
 let config2 = (CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]), [(state0, "x")], state1)
 
-let config3 = (Seq(Seq(Assign("k", Vector x2), CreateCOO("l",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])), MatMulCOO("r", Var "l", Var "k")), [(state0, "x")], state1)
+let config3 = ((Seq(CreateCOO("l",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]), Assign("r",TraceCOO(Var "l")))), [(state0, "x")], state1)
+let (res_c, res_k, res_s) = run_config config3;;
+lookup_state res_s "l";; (* should return Some (Val (IntVal 3)) *)
+lookup_state res_s "r";; 
 
+(*
 let test_coo_trace = trace_coo decl 
 
 let prog1 = Call ("x", "f", [Num 1; Num 2])
