@@ -364,9 +364,15 @@ let rec type_of (gamma : context) (e : exp) : typ option =
        | Some t1, Some t2 -> if t1 = t2 then Some BoolTy else None
        | _, _ -> None)
   | Vector v -> Some VectorTy
-  | TraceCOO c -> Some IntTy
-  | SparsityCOO c -> Some FloatTy
-  | DensityCOO c -> Some FloatTy
+  | TraceCOO e ->(match type_of gamma e with
+       | Some COOTy-> Some IntTy
+       | _ -> None)
+  | SparsityCOO  e ->(match type_of gamma e with
+       | Some COOTy-> Some FloatTy
+       | _ -> None)
+  | DensityCOO e ->(match type_of gamma e with
+       | Some COOTy-> Some FloatTy
+       | _ -> None)
   
 (*type_of a given list*)
 let rec type_of_list (gamma: context) (es: exp list): typ list option = 
