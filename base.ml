@@ -215,10 +215,6 @@ let rec trace_coo_fun (a : int list) (b : int list) (c : int list): int =
   | _ -> 0
 
 let trace_coo (c: coodecl): int = trace_coo_fun (get_rows_coo c) (get_cols_coo c) (get_data_coo c)
-(*
-let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (i: int) : int list =
-  if List.nth col_list ((List.length col_list )-1) < searched_pos then res
-*)
 
 let rec get_col_order (col_list: int list) (res: int list) (searched_pos: int) (i: int) : int list =
   if List.length col_list = List.length res then res
@@ -235,40 +231,109 @@ let rec re_order_vector (new_order: int list) (v1: int list) (res: int list): in
 let rec get_coo_transpose (c: coodecl): coodecl =
   ({cols=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); rows = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
 
-(*
-let rec coo_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl): coodecl option = 
+
+(************************************************************************************* COO MATRIX MUL **********************************************************************************************************)
+
+let rec coo_partial_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl) (full_c1 : coodecl) (full_c2 : coodecl): coodecl option = 
   match get_rows_coo c1, get_cols_coo c1, get_data_coo c1 with
     | r1_h :: r1_tail, c1_h :: c1_tail, d1_h :: d1_tail -> (
      match get_rows_coo c2, get_cols_coo c2, get_data_coo c2 with
         | r2_h :: r2_tail, c2_h :: c2_tail, d2_h :: d2_tail -> ( 
-          if (c1_h = c2_h) then (coo_matrix_mul_helper {rows = Vector(r1_tail); cols = Vector(c1_tail); data = Vector(d1_tail)} {rows = Vector(get_rows_coo c2); cols = Vector(get_cols_coo c2); data = Vector(get_data_coo c2)}
+          if (c1_h = c2_h) then ( coo_partial_matrix_mul_helper c1 {rows = Vector(r2_tail); cols = Vector(c2_tail); data = Vector(d2_tail)}
              {rows = Vector( r1_h           :: (get_rows_coo ret) ); 
               cols = Vector( r2_h           :: (get_cols_coo ret) ); 
-              data = Vector( (d1_h * d2_h)  :: (get_data_coo ret) )})
+              data = Vector( (d1_h * d2_h)  :: (get_data_coo ret) )}) full_c1 full_c2
           else 
-            coo_matrix_mul_helper c1 ({rows = Vector(r2_tail); cols = Vector(c2_tail); data = Vector(d2_tail)}) ret
+            coo_partial_matrix_mul_helper c1 ({rows = Vector(r2_tail); cols = Vector(c2_tail); data = Vector(d2_tail)}) ret full_c1 full_c2
         )
-        | [], [], [] -> coo_matrix_mul_helper ({rows = Vector(r1_tail); cols = Vector(c1_tail); data = Vector(d1_tail)}) ({rows = Vector(get_rows_coo c2); cols = Vector(get_cols_coo c2); data = Vector(get_data_coo c2)}) ret
+        | _ , [], [] -> coo_partial_matrix_mul_helper ({rows = Vector(r1_tail); cols = Vector(c1_tail); data = Vector(d1_tail)}) full_c2 ret full_c1 full_c2
         | _ -> None
     )
-    | [], [], [] -> Some {rows = Vector(get_rows_coo ret); cols = Vector(get_cols_coo ret); data = Vector(get_data_coo ret)}
+    | [], _, _ -> Some {rows = Vector(get_rows_coo ret); cols = Vector(get_cols_coo ret); data = Vector(get_data_coo ret)}
     | _ -> None
-*)
+
 
 let max_number_list lst = List.fold_left max 0 lst
 
-
-(*
-let rec coo_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl) : coodecl option = 
-  match get_rows_coo c1, get_cols_coo c1, get_data_coo c1, get_rows_coo c2, get_cols_coo c2, get_data_coo c2 with
-  | r1_h :: r1_tail, c1_h :: c1_tail, d1_h :: d1_tail, r2_h :: r2_tail, c2_h :: c2_tail, d2_h :: d2_tail -> (
-    if 
-  )
-
-let coo_matrix_mul (c1: coodecl) (c2: coodecl) (ret: coodecl): coodecl option = 
+let coo_partial_matrix_mul (c1: coodecl) (c2: coodecl) : coodecl option = 
   let c2' = get_coo_transpose c2 in
-  coo_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([])}
-*)
+  (*let longer_coo = coo_partial_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([])} c1 c2'*) 
+  coo_partial_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([])} c1 c2'
+
+
+let rec tail l =
+  match l with
+  | [] -> []
+  | h :: tl -> tl
+
+let rec head_int l =
+  match l with
+  | [] -> -1
+  | h :: tl -> h
+
+let get_tail l =
+  match l with
+  | [] -> []
+  | h :: tl -> tl
+
+let combine_lists a b = List.combine a b
+
+let rec mergelist (l1 : int list)(l2 : int list)(l3 : int list) = List.combine (List.combine l1 l2) l3
+
+let supersort l = 
+  List.sort 
+  (fun ((k1, v1),a) ((k2, v2),b) -> 
+    if k1 = k2 then Stdlib.compare v1 v2 
+    else Stdlib.compare k1 k2) l
+
+let rec retransform l ret : coodecl = match l with
+    | ((a,b),c) :: rest -> (retransform rest ({rows = Vector ((a :: (get_rows_coo ret))); cols = Vector ((b :: get_cols_coo ret)); data = Vector ((c :: get_data_coo ret))}))
+    | [] -> ({rows = Vector (get_rows_coo ret); cols = Vector (get_cols_coo ret); data = Vector (get_data_coo ret)})
+
+let fix_coo_extended (rows_list : int list) (cols_list : int list) (data_list : int list) : coodecl =
+  let merged = mergelist rows_list cols_list data_list in
+  let sorted = supersort merged in
+  let reordered = retransform sorted {rows = Vector ([]); cols = Vector (([])); data = Vector ([])} in  (*reordered is of type coodecl*)
+  let r = (get_rows_coo reordered) in
+  let c = (get_cols_coo reordered) in 
+  let d = (get_data_coo reordered) in
+  {rows = Vector r; cols = Vector c; data = Vector d}
+
+let is_empty l = match l with
+  | [] -> true
+  | _ -> false
+
+let rec compress (r_out : int list) (c_out : int list) (d_out : int list) (ret : coodecl) : coodecl =
+  match r_out, c_out, d_out with
+  | r_h :: r_rest2, c_h :: c_rest2, d_h :: d_rest2 -> (
+    match r_rest2, c_rest2, d_rest2 with
+    | r_m :: r_rest, c_m :: c_rest, d_m :: d_rest -> (
+    if (r_h = r_m && c_h = c_m) then (
+        if        ( (head_int (get_rows_coo ret)) != r_h || (head_int (get_cols_coo ret)) != c_h) then compress (r_m :: r_rest) (c_m :: c_rest) (d_m :: d_rest) {rows = Vector (r_h :: (get_rows_coo ret)); cols = Vector (c_h :: (get_cols_coo ret)); data = Vector ((d_h + d_m) :: (get_data_coo ret))} 
+        else      compress (r_m :: r_rest) (c_m :: c_rest) (d_m :: d_rest) {rows = Vector ((get_rows_coo ret)); cols = Vector ((get_cols_coo ret)); data = Vector ((head_int (get_data_coo ret) + d_m) :: (get_tail (get_data_coo ret)))} 
+    )
+    else
+      if (is_empty (get_rows_coo ret)) then compress (r_m :: r_rest) (c_m :: c_rest) (d_m :: d_rest) {rows = Vector (r_h :: r_m :: (get_rows_coo ret)); cols = Vector (c_m :: c_h :: (get_cols_coo ret)); data = Vector (d_m :: d_h :: (get_data_coo ret))} 
+      else compress (r_m :: r_rest) (c_m :: c_rest) (d_m :: d_rest) {rows = Vector (r_m :: (get_rows_coo ret)); cols = Vector (c_m :: (get_cols_coo ret)); data = Vector (d_m :: (get_data_coo ret))} 
+    )
+    | _ -> ret
+  )
+  | [], [], [] -> ret
+  | _ -> ret
+  
+let coo_complete_matrix_mul (c1: coodecl) (c2 : coodecl) : coodecl option = 
+  let partial = coo_partial_matrix_mul c1 c2 in
+  match partial with
+  | Some a -> (
+    let fixed = fix_coo_extended (get_rows_coo a) (get_cols_coo a) (get_data_coo a) in
+    match compress (get_rows_coo fixed) (get_cols_coo fixed) (get_data_coo fixed) {rows = Vector ([]); cols = Vector (([])); data = Vector ([])} with
+    | x -> Some x
+  )
+  | _ -> None
+
+
+(**************************************************************************************************************************************************************************************************************)
+
 let rec get_matrix_transpose (c: coodecl): coodecl =
   ({rows=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); cols = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
   
@@ -418,8 +483,28 @@ let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d}
 let empty_decl : coodecl = {rows = Vector []; cols = Vector []; data = Vector []}
 let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2}
 let decl3: coodecl = { rows = Vector r3; cols = Vector c3; data = Vector d3}
-(*let test_coo_matrix_mul = coo_matrix_mul decl2 decl3 empty_decl*)
-let x = [2; 2; 2; 2]
+
+
+let ra = [3; 0; 0; 0; 2; 3; 3]
+let ca = [3; 1; 2; 3; 2; 0; 1]
+let da = [6; 10; 4; 2; 3; 4; 2]
+let rb = [3; 0; 1; 2; 2; 3; 3]
+let cb = [3; 2; 3; 1; 2; 0; 1]
+let db = [6; 8; 3; 2; 8; 2; 7]
+let decla : coodecl = {rows = Vector ra; cols = Vector ca; data = Vector da}
+let declb: coodecl = { rows = Vector rb; cols = Vector cb; data = Vector db}
+let test_coo_partial_matrix_mul = coo_partial_matrix_mul decl decl
+(*should return:
+[3; 3; 3; 3; 2; 2; 2; 2; 2; 2; 2; 1; 1; 1; 1; 1; 0; 0; 0; 0];
+[3; 1; 2; 1; 3; 1; 3; 2; 0; 1; 0; 3; 2; 0; 2; 1; 2; 1; 1; 0];
+[16; 24; 48; 12; 36; 54; 27; 9; 15; 35; 5; 72; 24; 40; 16; 4; 56; 14; 7; 1]
+*)
+let test_coo_complete_matrix_mul = coo_complete_matrix_mul decl decl
+
+let x = [2; 1; 3; 2]
+let y = [1;3;2;4]
+let w = combine_lists x y
+
 let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
 let x2 = [2; 1; 0; 1]
 let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (* should return [9; 2; 19; 10] *)
@@ -428,8 +513,21 @@ let test_transpose = get_coo_transpose decl
 let test_col_order = get_col_order (get_cols_coo decl) [] 0 0
 let test_transpose = get_matrix_transpose decl3
 
+(*
+let x = [3; 3; 3; 3; 2; 2; 2; 2; 2; 2; 2; 1; 1; 1; 1; 1; 0; 0; 0; 0]
+let y = [3; 1; 2; 1; 3; 1; 3; 2; 0; 1; 0; 3; 2; 0; 2; 1; 2; 1; 1; 0]
+let z = [16; 24; 48; 12; 36; 54; 27; 9; 15; 35; 5; 72; 24; 40; 16; 4; 56; 14; 7; 1]
+*)
 
 (*
+expected
+let x = [3; 3; 3; 2; 2; 2; 2; 1; 1; 1; 1; 0; 0; 0]
+let y = [3; 1; 2; 3; 1; 2; 0; 3; 2; 0; 1; 2; 1; 0]
+let z = [16; 24+12; 48; 12+54; 36+15; 27; 9+35; 5; 72+40; 24; 16; 4; 56; 14+7; 1]
+*)
+
+(*let test_compress_longer_coo = compress_longer_coo x y z *)
+
 let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 let r2 = [0; 0; 1; 1]
 let c2 = [1; 2; 0; 2]
@@ -439,8 +537,8 @@ let c3 = [0; 1; 1; 0]
 let d3 = [2; 5; 1; 8]
 let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2}
 let decl3 : coodecl = {rows = Vector r3; cols = Vector c3; data = Vector d3}
-let test_coo_matrix_mul = coo_matrix_mul_2 decl2 decl3 empty_decl
-
+(*let test_coo_partial_matrix_mul = coo_partial_matrix_mul decl2 decl3 empty_decl*)
+(*
 let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
 let state1 = update_state (update_state state0 "x" (Val (IntVal 1))) "y" (Val (IntVal 2))
 let config1 =( Seq(Seq(CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]),CreateCOO("s",Num 4, Num 4, Vector [1; 7; 3; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])),MatSubCOO("c",Var "z",Var "s")), [(state0, "x")], state1)
