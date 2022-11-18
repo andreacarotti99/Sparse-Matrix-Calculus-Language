@@ -201,11 +201,11 @@ let rec coo_Ax_mul_helper (c: coodecl) (x: int list) (y : int list) : int list o
   | _ , _, _ , _ -> None
    
 let coo_Ax_mul (c1: coodecl) (x: int list) : int list option = 
-  if c1.n_cols = (get_size x) then (
+  if c1.n_cols = (get_size x) then 
     let y = empty_list (get_size x)
     in
     coo_Ax_mul_helper c1 x y
-  )else None
+  else None
 
 
 let rec trace_coo_fun (a : int list) (b : int list) (c : int list): int = 
@@ -258,11 +258,11 @@ let rec coo_partial_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl)
 let max_number_list lst = List.fold_left max 0 lst
 
 let coo_partial_matrix_mul (c1: coodecl) (c2: coodecl) : coodecl option = 
-  if (c1.n_cols = c2.n_rows) then
+  
     let c2' = get_coo_transpose c2 in
     (*let longer_coo = coo_partial_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([])} c1 c2'*) 
     coo_partial_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([]); n_rows =c1.n_rows; n_cols = c1.n_cols} c1 c2'   
-  else None
+  
 
 
 
@@ -327,14 +327,16 @@ let rec compress (r_out : int list) (c_out : int list) (d_out : int list) (ret :
   | _ -> ret
   
 let coo_complete_matrix_mul (c1: coodecl) (c2 : coodecl) : coodecl option = 
-  let partial = coo_partial_matrix_mul c1 c2 in
-  match partial with
-  | Some a -> (
-    let fixed = fix_coo_extended (get_rows_coo a) (get_cols_coo a) (get_data_coo a) a.n_rows a.n_cols in
-    match compress (get_rows_coo fixed) (get_cols_coo fixed) (get_data_coo fixed) {rows = Vector ([]); cols = Vector (([])); data = Vector ([]);n_rows = fixed.n_rows;n_cols = fixed.n_cols} with
-    | x -> Some x
-  )
-  | _ -> None
+  if (c1.n_cols = c2.n_rows) then
+    let partial = coo_partial_matrix_mul c1 c2 in
+    match partial with
+    | Some a -> (
+      let fixed = fix_coo_extended (get_rows_coo a) (get_cols_coo a) (get_data_coo a) a.n_rows a.n_cols in
+      match compress (get_rows_coo fixed) (get_cols_coo fixed) (get_data_coo fixed) {rows = Vector ([]); cols = Vector (([])); data = Vector ([]);n_rows = fixed.n_rows;n_cols = fixed.n_cols} with
+      | x -> Some x
+    )
+    | _ -> None
+  else None
 
 let coo_density (c:coodecl) : float = float_of_int(get_size (get_cols_coo c))/.float_of_int(c.n_cols * c.n_rows)
 
@@ -404,8 +406,13 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
                                               | Some COOTy, Some IntTy, Some IntTy, Some VectorTy->true
                                               |_,_,_,_ ->false
   )
-  | MatSumCOO(x,m1,m2) | MatSubCOO(x,m1,m2) | MatMulCOO(x,m1,m2)-> (match lookup_context gamma x, type_of gamma m1, type_of gamma m2 with
+  | MatSumCOO(x,m1,m2) | MatSubCOO(x,m1,m2)-> (match lookup_context gamma x, type_of gamma m1, type_of gamma m2 with
                             | Some COOTy, Some COOTy, Some COOTy->true
+                            |_,_,_ ->false
+  )
+  | MatMulCOO(x,m1,m2)-> (match lookup_context gamma x, type_of gamma m1, type_of gamma m2 with
+                            | Some COOTy, Some COOTy, Some COOTy->true
+                            | Some VectorTy, Some COOTy, Some VectorTy -> true
                             |_,_,_ ->false
   )
   | Call(x, f, es) -> (match lookup_context gamma x,lookup_context gamma f  with
@@ -518,6 +525,9 @@ let rec step_cmd (c : cmd) (k : stack) (s : state) : config option =
     (match eval_exp v1 s, eval_exp v2 s with
       | Some (COOVal c1), Some (VectorVal vec) -> (match (coo_Ax_mul c1 vec) with
                                                 | Some res -> Some (Skip, k, update_state s x (Val(VectorVal res)))
+                                                | _ -> None )
+      | Some (COOVal c1), Some(COOVal c2) -> (match (coo_complete_matrix_mul c1 c2) with
+                                                | Some res -> Some (Skip, k, update_state s x (Val(COOVal res)))
                                                 | _ -> None )
       | _ -> None)
 

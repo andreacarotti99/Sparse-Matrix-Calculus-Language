@@ -103,7 +103,9 @@ let d1 = [10; 12; 1; 2]
 let r2 = [0; 0; 1; 2]
 let c2 = [0; 1; 1; 0]
 let d2 = [2; 5; 1; 8]
-let decl1 : coodecl = {rows = Vector r1; cols = Vector c1; data = Vector d; n_rows = 3; n_cols = 3}
+let v = [2; 1; 0]
+
+let decl1 : coodecl = {rows = Vector r1; cols = Vector c1; data = Vector d1; n_rows = 3; n_cols = 3}
 let empty_decl : coodecl = {rows = Vector []; cols = Vector []; data = Vector []; n_rows = 0; n_cols = 0}
 let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2; n_rows = 3; n_cols = 3}
 let state2 = update_state (update_state empty_state "l" (Val(COOVal decl1))) "n" (Val(COOVal decl2))
@@ -127,3 +129,17 @@ lookup_state subCOO0_s "sub";;
      {rows = Vector [0; 0; 0; 1; 1; 1; 2]; cols = Vector [0; 1; 2; 0; 1; 2; 0];
       data = Vector [2; 6; 7; 2; 1; 8; 8]; n_rows = 3; n_cols = 3}))*)
 
+(*Test MatMulCOO*)
+let config_mulCOO_0 = (MatMulCOO ("mul", Var "l", Var "n"), [(state2, "x")], state2)
+let (mulCOO0_c, mulCOO0_k, mulCOO0_s) = run_config config_mulCOO_0;;
+lookup_state mulCOO0_s "mul";;
+      (* Should return Some
+ (Val
+   (COOVal
+     {rows = Vector [0; 0; 1; 1]; cols = Vector [0; 1; 0; 1];
+      data = Vector [56; 1; 68; 10]; n_rows = 3; n_cols = 3}))*)
+
+let config_mulvecCOO_1 = (MatMulCOO ("mul_vec", Var "l", Vector v), [(state2, "x")], state2)
+let (mulvecCOO0_c, mulvecCOO0_k, mulvecCOO0_s) = run_config config_mulvecCOO_1;;
+lookup_state mulvecCOO0_s "mul_vec";;
+      (* Should return Some (Val (VectorVal [10; 2; 0])*)

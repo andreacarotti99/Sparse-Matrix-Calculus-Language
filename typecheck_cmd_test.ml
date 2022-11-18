@@ -83,4 +83,4 @@ let mulcoo_0 = typecheck_cmd ctx (MatMulCOO("d1",Var "d1", Var "d2")) (* Should 
 let mulcoo_1 = typecheck_cmd ctx (MatMulCOO("d3",Var "d1", Var "d2")) (* Should return true*)
 let mulcoo_2 = typecheck_cmd ctx (MatMulCOO("v",Var "d1", Var "d2")) (* Should return false*)
 let mulcoo_3 = typecheck_cmd ctx (MatMulCOO("d1",Num 3, Var "d2")) (* Should return false*)
-let mulcoo_4 = typecheck_cmd ctx (MatMulCOO("d1",Var "d1", Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4] )) (* Should return false*)
+let mulcoo_4 = typecheck_cmd ctx (MatMulCOO("v",Var "d1", Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4] )) (* Should return true*)
