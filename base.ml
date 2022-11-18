@@ -6,6 +6,9 @@ type exp = Var of ident | Num of int | Add of exp * exp | Sub of exp * exp
          | Bool of bool | And of exp * exp | Or of exp * exp
          | Eq of exp * exp
          | Vector of (int list)
+          | TraceCOO of exp
+          | DensityCOO of exp
+          | SparsityCOO of exp
           
 type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | IfC of exp * cmd * cmd | While of exp * cmd
@@ -15,10 +18,11 @@ type cmd = Assign of ident * exp | Seq of cmd * cmd | Skip
            | MatSubCOO of ident * exp * exp
            | MatMulCOO of ident * exp * exp
 
+
 type coodecl = {rows : exp; cols : exp; data : exp; n_rows: int; n_cols: int}
-type value = IntVal of int | BoolVal of bool | VectorVal of (int list) | COOVal of coodecl
+type value = IntVal of int | BoolVal of bool | VectorVal of (int list) | COOVal of coodecl | FloatVal of float
 type entry = Val of value | Fun of ident list * cmd 
-type typ = IntTy | BoolTy | VectorTy | COOTy | FunTy of typ * (typ list)
+type typ = IntTy | BoolTy | VectorTy | COOTy | FunTy of typ * (typ list) | FloatTy
 (* context *)
 type context = ident -> typ option
 let empty_context = fun x -> None
@@ -335,11 +339,7 @@ let coo_complete_matrix_mul (c1: coodecl) (c2 : coodecl) : coodecl option =
 
 (**************************************************************************************************************************************************************************************************************)
 
-(*
-let rec get_matrix_transpose (c: coodecl): coodecl =
-  ({rows=Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_rows_coo c) [])); cols = Vector(sort (fun a b -> a - b) (get_cols_coo c)); data = Vector((re_order_vector (get_col_order (get_cols_coo c) [] 0 0) (get_data_coo c) []))})
-  
-*)
+
 
 (* ------------------------------------------------------------------------------------------------------------------------------------------------ *)
 
@@ -361,6 +361,9 @@ let rec type_of (gamma : context) (e : exp) : typ option =
        | Some t1, Some t2 -> if t1 = t2 then Some BoolTy else None
        | _, _ -> None)
   | Vector v -> Some VectorTy
+  | TraceCOO c -> Some IntTy
+  | SparsityCOO c -> Some FloatTy
+  | DensityCOO c -> Some FloatTy
   
 (*type_of a given list*)
 let rec type_of_list (gamma: context) (es: exp list): typ list option = 
@@ -415,6 +418,7 @@ let rec typecheck_cmd (gamma : context) (c : cmd) : bool =
 
 
 
+
 let rec eval_exp (e : exp) (s : state) : value option =
   match e with
   | Var x -> (match lookup_state s x with Some (Val v) -> Some v 
@@ -437,6 +441,13 @@ let rec eval_exp (e : exp) (s : state) : value option =
                      | Some v1, Some v2 -> Some (BoolVal (v1 = v2))
                      | _, _ -> None)
   | Vector v -> Some(VectorVal v)
+  | TraceCOO e -> (match eval_exp e s with
+                    |Some (COOVal c)->  Some(IntVal (trace_coo c))  
+                    |_ ->None)
+  | SparsityCOO e -> (match eval_exp e s with
+                    |Some (COOVal c)->  Some(FloatVal ( c))  
+                    |_ ->None)
+    
 
 let rec eval_exps (es : exp list) (s : state) : value list option =
   match es with
@@ -497,6 +508,7 @@ let rec step_cmd (c : cmd) (k : stack) (s : state) : config option =
                                                 | Some res -> Some (Skip, k, update_state s x (Val(VectorVal res)))
                                                 | _ -> None )
       | _ -> None)
+
 
 let rec run_config (con : config) : config =
   let (c, k, s) = con in
