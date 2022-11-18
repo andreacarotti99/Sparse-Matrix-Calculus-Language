@@ -336,6 +336,9 @@ let coo_complete_matrix_mul (c1: coodecl) (c2 : coodecl) : coodecl option =
   )
   | _ -> None
 
+let coo_density (c:coodecl) : float = float_of_int(get_size (get_cols_coo c))/.float_of_int(c.n_cols * c.n_rows)
+
+let coo_sparsity (c:coodecl) : float = float_of_int(c.n_cols * c.n_rows - (get_size (get_cols_coo c)))/. float_of_int(c.n_cols * c.n_rows)
 
 (**************************************************************************************************************************************************************************************************************)
 
@@ -445,8 +448,11 @@ let rec eval_exp (e : exp) (s : state) : value option =
                     |Some (COOVal c)->  Some(IntVal (trace_coo c))  
                     |_ ->None)
   | SparsityCOO e -> (match eval_exp e s with
-                    |Some (COOVal c)->  Some(FloatVal ( c))  
+                    |Some (COOVal c)->  Some(FloatVal (coo_sparsity c))  
                     |_ ->None)
+  | DensityCOO e -> (match eval_exp e s with
+                    |Some (COOVal c)->  Some(FloatVal (coo_sparsity c))  
+                    |_ ->None)                  
     
 
 let rec eval_exps (es : exp list) (s : state) : value list option =
