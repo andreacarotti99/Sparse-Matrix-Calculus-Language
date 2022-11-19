@@ -257,6 +257,18 @@ let rec coo_partial_matrix_mul_helper (c1: coodecl) (c2: coodecl) (ret: coodecl)
 
 let max_number_list lst = List.fold_left max 0 lst
 
+(*
+This function is called "partial" because when you perform the matrix multiplication
+between two matrices in COO format, optimization of the computation requires you to first get 3 vectors containing
+where rows and cols still indicates the coordinate of the content of data, but there are multiple
+values values i and j of rows and cols for which rows[i] = rows[j] and cols[i] = cols[j] and to get the final result,
+we still need to sum the content of the cell for which this behaviour happens:
+e.g.
+PARTIAL:                            COMPLETE:
+rows = [0, 0, 0, 1, 1]              rows = [0, 1]       
+cols = [0, 0, 0, 2, 2] --> becomes: cols = [0, 1]
+data = [4, 1, 2, 6, 8]              data = [4+1+2, 6+8]
+*)
 let coo_partial_matrix_mul (c1: coodecl) (c2: coodecl) : coodecl option = 
   
     let c2' = get_coo_transpose c2 in
@@ -541,104 +553,4 @@ let rec run_config (con : config) : config =
 let run_prog (c : cmd) s =
   run_config (c, [], s)
 
-
-
-(* --------------------------------------------------------------- TEST --------------------------------------------------------------------------------- *)
-let r = [0; 0; 1; 1; 2; 2; 2; 3; 3]
-let c = [0; 1; 1; 2; 0; 2; 3; 1; 3]
-let d = [1; 7; 2; 8; 5; 3; 9; 6; 4]
-let r2 = [0; 0; 1; 1]
-let c2 = [1; 2; 0; 2]
-let d2 = [10; 12; 1; 2]
-let r3 = [0; 0; 1; 2]
-let c3 = [0; 1; 1; 0]
-let d3 = [2; 5; 1; 8]
-
-let decl : coodecl = {rows = Vector r; cols = Vector c; data = Vector d; n_rows = 4; n_cols = 4}
-let empty_decl : coodecl = {rows = Vector []; cols = Vector []; data = Vector []; n_rows = 4; n_cols = 4}
-let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2; n_rows = 2; n_cols = 3}
-let decl3: coodecl = { rows = Vector r3; cols = Vector c3; data = Vector d3; n_rows = 3; n_cols = 2}
-
-
-let ra = [3; 0; 0; 0; 2; 3; 3]
-let ca = [3; 1; 2; 3; 2; 0; 1]
-let da = [6; 10; 4; 2; 3; 4; 2]
-let rb = [3; 0; 1; 2; 2; 3; 3]
-let cb = [3; 2; 3; 1; 2; 0; 1]
-let db = [6; 8; 3; 2; 8; 2; 7]
-let decla : coodecl = {rows = Vector ra; cols = Vector ca; data = Vector da; n_rows = 4; n_cols = 4}
-let declb: coodecl = { rows = Vector rb; cols = Vector cb; data = Vector db; n_rows = 4; n_cols = 4}
-let test_coo_partial_matrix_mul = coo_partial_matrix_mul decl decl
-(*should return:
-[3; 3; 3; 3; 2; 2; 2; 2; 2; 2; 2; 1; 1; 1; 1; 1; 0; 0; 0; 0];
-[3; 1; 2; 1; 3; 1; 3; 2; 0; 1; 0; 3; 2; 0; 2; 1; 2; 1; 1; 0];
-[16; 24; 48; 12; 36; 54; 27; 9; 15; 35; 5; 72; 24; 40; 16; 4; 56; 14; 7; 1]
-*)
-let test_coo_complete_matrix_mul = coo_complete_matrix_mul decl decl
-
-let x = [2; 1; 3; 2]
-let y = [1;3;2;4]
-let w = combine_lists x y
-
-let test_multiplication_Ax_COO = coo_Ax_mul decl x (* should return [16; 20; 34; 20] *)
-let x2 = [2; 1; 0; 1]
- let test_multiplication_Ax_COO_2 = coo_Ax_mul decl x2 (*should return [9; 2; 19; 10]
-let test_col_order = get_col_order ((get_cols_coo decl) [] 0 0)
-let test_transpose = get_coo_transpose decl
-let test_col_order = get_col_order ((get_cols_coo decl) [] 0 0)*)
-
-(*
-let x = [3; 3; 3; 3; 2; 2; 2; 2; 2; 2; 2; 1; 1; 1; 1; 1; 0; 0; 0; 0]
-let y = [3; 1; 2; 1; 3; 1; 3; 2; 0; 1; 0; 3; 2; 0; 2; 1; 2; 1; 1; 0]
-let z = [16; 24; 48; 12; 36; 54; 27; 9; 15; 35; 5; 72; 24; 40; 16; 4; 56; 14; 7; 1]
-*)
-
-(*
-expected
-let x = [3; 3; 3; 2; 2; 2; 2; 1; 1; 1; 1; 0; 0; 0]
-let y = [3; 1; 2; 3; 1; 2; 0; 3; 2; 0; 1; 2; 1; 0]
-let z = [16; 24+12; 48; 12+54; 36+15; 27; 9+35; 5; 72+40; 24; 16; 4; 56; 14+7; 1]
-*)
-
-(*let test_compress_longer_coo = compress_longer_coo x y z *)
-
-let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
-let r2 = [0; 0; 1; 1]
-let c2 = [1; 2; 0; 2]
-let d2 = [10; 12; 1; 2]
-let r3 = [0; 0; 1; 2]
-let c3 = [0; 1; 1; 0]
-let d3 = [2; 5; 1; 8]
-let decl2 : coodecl = {rows = Vector r2; cols = Vector c2; data = Vector d2; n_rows = 2; n_cols = 3}
-let decl3 : coodecl = {rows = Vector r3; cols = Vector c3; data = Vector d3; n_rows = 3; n_cols = 2}
-(*let test_coo_partial_matrix_mul = coo_partial_matrix_mul decl2 decl3 empty_decl*)
-
-let state0 = update_state empty_state "f" (Fun (["x"; "y"], Return (Add (Var "x", Var "y"))))
-let state1 = update_state (update_state state0 "x" (Val (IntVal 1))) "y" (Val (IntVal 2))
-let config1 =( Seq(Seq(CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]),CreateCOO("s",Num 4, Num 4, Vector [1; 7; 3; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4])),MatSubCOO("c",Var "z",Var "s")), [(state0, "x")], state1)
-let config2 = (CreateCOO("z",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]), [(state0, "x")], state1)
-
-let config3 = ((Seq(CreateCOO("l",Num 4, Num 4, Vector [1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]), Assign("r",TraceCOO(Var "l")))), [(state0, "x")], state1)
-let (res_c, res_k, res_s) = run_config config3;;
-lookup_state res_s "l";; (* should return Some (Val (IntVal 3)) *)
-lookup_state res_s "r";; 
-
-(*
-let test_coo_trace = trace_coo decl 
-
-let prog1 = Call ("x", "f", [Num 1; Num 2])
-
-let (res_c, res_k, res_s) = run_config config1;;
-lookup_state res_s "z";; (* should return Some (Val (IntVal 3)) *)
-lookup_state res_s "s";; 
-lookup_state res_s "c";; 
-
-let (res_c, res_k, res_s) = run_config config2;;
-lookup_state res_s "z";; (* should return Some (Val (IntVal 3)) *)
-
-let (res_c, res_k, res_s) = run_prog prog1 state0;;
-lookup_state res_s "x";;  should return Some (Val (IntVal 3))
-lookup_state res_s "y";; should return None 
-
-*)
  
