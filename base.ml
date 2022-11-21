@@ -260,9 +260,9 @@ let max_number_list lst = List.fold_left max 0 lst
 (*
 This function is called "partial" because when you perform the matrix multiplication
 between two matrices in COO format, optimization of the computation requires you to first get 3 vectors containing
-where rows and cols still indicates the coordinate of the content of data, but there are multiple
-values values i and j of rows and cols for which rows[i] = rows[j] and cols[i] = cols[j] and to get the final result,
-we still need to sum the content of the cell for which this behaviour happens:
+where rows and cols still indicates the coordinate of the content of data. The data though is not yet in the final format.
+There are indeed values i and j of rows and cols for which rows[i] = rows[j] and cols[i] = cols[j]. 
+To get the final result, we still need to sum the content of the cell for which this happens:
 e.g.
 PARTIAL:                            COMPLETE:
 rows = [0, 0, 0, 1, 1]              rows = [0, 1]       
@@ -270,18 +270,10 @@ cols = [0, 0, 0, 2, 2] --> becomes: cols = [0, 1]
 data = [4, 1, 2, 6, 8]              data = [4+1+2, 6+8]
 *)
 let coo_partial_matrix_mul (c1: coodecl) (c2: coodecl) : coodecl option = 
-  
     let c2' = get_coo_transpose c2 in
     (*let longer_coo = coo_partial_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([])} c1 c2'*) 
     coo_partial_matrix_mul_helper c1 c2' {rows = Vector([]); cols = Vector([]); data = Vector([]); n_rows =c1.n_rows; n_cols = c1.n_cols} c1 c2'   
   
-
-
-
-let rec tail l =
-  match l with
-  | [] -> []
-  | h :: tl -> tl
 
 let rec head_int l =
   match l with
