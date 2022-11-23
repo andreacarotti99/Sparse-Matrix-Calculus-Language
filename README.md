@@ -34,7 +34,8 @@ CreateCOO("A", Num 3, Num 3, Vector ([1; 7; 0; 0; 2; 8; 5; 0; 3;]))
 ```
 This operation lets you store inside a COO matrix the original int list provided.
 
-![Alt text](img/coo_format?raw=true "Title")
+<img src="img/coo_format.png" width="600" height="200" />
+
 
 # Sum operation C = A+B
 The main idea is going through the coordinates of row and colum of the two parsed matrices, whenever they match the sum between them is performed. In case there is no match the value for that coordinate is still is added to the result. 
@@ -56,12 +57,19 @@ the original C algorithm used for this task suits perfectly OCaml ways of handli
 MatMul("y", Var "A", Var "x")
 ```
 
+<img src="img/matrix_vector_mul.png" width="1000" height="200" />
+
+
 # Multiplication operation C = A*B
 The implementation of this operation was much harder instead. Intuitively the first way to solve the problem would be to treat the B matrix as a group of columns arrays and try to perform the same operation as before. The objective though is to keep matrices in sparse format, so the problem was not solved with this method.
 
 ```sh
 MatMul("C", Var "A", Var "B")
 ```
+
+<img src="img/matrix_matrix_mul.png" width="200" height="200" />
+
+
 
 The algorithm proposed first transpose the B matrix, and then scan the support data structures as a "nested" for loop.
 
