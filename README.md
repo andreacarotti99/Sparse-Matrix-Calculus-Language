@@ -30,7 +30,7 @@ The types implemented in our lanugage, that extends a simple basic imperative la
 # Parse operation
 Given a generic list of int with specific support functions we were able to parse the given list into a COO matrix.
 ```sh
-CreateCOO("A", Num 3, Num 3, Vector ([1; 7; 0; 0; 2; 8; 5; 0; 3;]))
+CreateCOO("A", Num 4, Num 4, Vector ([1; 7; 0; 0; 0; 2; 8; 0; 5; 0; 3; 9; 0; 6; 0; 4]))
 ```
 This operation lets you store inside a COO matrix the original int list provided.
 
@@ -67,7 +67,7 @@ The implementation of this operation was much harder instead. Intuitively the fi
 MatMul("C", Var "A", Var "B")
 ```
 
-<img src="img/matrix_matrix_mul.png" width="200" height="200" />
+<img src="img/matrix_matrix_mul.png" width="400" height="300" />
 
 
 
