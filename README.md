@@ -17,9 +17,9 @@ The language we designed is a basic linear algebra language. The main difference
 - Multiplication between a matrix A (COO format) and a matrix B (COO format)
 - Transpose of matrix A (COO format)
 - Basic operations to get useful matrix information:
-    a) Trace of the matrix A
-    b) Sparsity of the matrix A
-    c) Density of the matrix A
+    - Trace of the matrix A
+    - Sparsity of the matrix A
+    - Density of the matrix A
 
 ## Introduction
 Sparse Computation is an operation used in many application domains. Our language tries to address the problem of reading from input a matrix as a long vector (given for example from an input file) parse it, and then perform basic linear algebra operations.
@@ -67,7 +67,7 @@ The implementation of this operation was much harder instead. Intuitively the fi
 MatMul("C", Var "A", Var "B")
 ```
 
-<img src="img/matrix_matrix_mul.png" width="400" height="300" />
+<img src="img/matrix_matrix_mul.png" width="1000" height="400" />
 
 
 
