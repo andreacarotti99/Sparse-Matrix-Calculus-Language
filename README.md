@@ -32,7 +32,9 @@ Given a generic list of int with specific support functions we were able to pars
 ```sh
 CreateCOO("A", Num 3, Num 3, Vector ([1; 7; 0; 0; 2; 8; 5; 0; 3;]))
 ```
-This operation lets you store in a matrix in COO format inside the variable A.
+This operation lets you store inside a COO matrix the original int list provided.
+
+![Alt text](img/coo_format?raw=true "Title")
 
 # Sum operation C = A+B
 The main idea is going through the coordinates of row and colum of the two parsed matrices, whenever they match the sum between them is performed. In case there is no match the value for that coordinate is still is added to the result. 
