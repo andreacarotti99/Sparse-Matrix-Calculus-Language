@@ -34,7 +34,19 @@ CreateCOO("A", Num 3, Num 3, Vector ([1; 7; 0; 0; 2; 8; 5; 0; 3;]))
 ```
 This operation lets you store in a matrix in COO format inside the variable A.
 
-# Sum operation
+# Sum operation C = A+B
+The main idea is going through the coordinates of row and colum of the two parsed matrices, whenever they match the sum between them is performed. In case there is no match the value for that coordinate is still is added to the result. 
+The main difficulty for this approach was passing the declaration through the process and extracting the rows and columns indeces from the data object.
+```sh
+MatSum("C", Var "A", Var "B")
+```
+Before adding to the resut a check is performed for the results which are 0 that don't have to be added to the result.
+
+# Sub operation C = A-B
+The approach for subtraction is analogous to the one for sum.
+```sh
+MatSub("C", Var "A", Var "B")
+```
 
 # Multiplication operation y = A*x
 the original C algorithm used for this task suits perfectly OCaml ways of handling lists, since to perform the multiplication you need to scan the rows, columns and data arrays (used to store the matrix) only once.
@@ -54,6 +66,7 @@ The algorithm proposed first transpose the B matrix, and then scan the support d
 Here is the link containing the main idea of the algorithm: https://www.youtube.com/watch?v=x70zNUIHR0k&t=306s&ab_channel=ComputerEngineeringmadeEasy
 
 The last challenging part then is to compress the representation obtained, this is much harder and to achieve this, we first transformed the triplets of the data structures from lists to triples, then we sorted them, then we retransoformed to lists (we couldn't just sort the lists because the i-th value of the list is bounded for the triplets) and finally we applied the compression algorithm to get the final lists.
+
 
 ## Future Work
 
