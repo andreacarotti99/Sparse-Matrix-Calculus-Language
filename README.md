@@ -67,7 +67,7 @@ The implementation of this operation was much harder instead. Intuitively the fi
 MatMul("C", Var "A", Var "B")
 ```
 
-<img src="img/matrix_matrix_mul.png" width="1000" height="400" />
+<img src="img/matrix_matrix_mul.png" width="900" height="350" />
 
 
 
