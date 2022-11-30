@@ -24,6 +24,8 @@ The language designed is a basic linear algebra language. The main difference be
 ## Introduction
 Sparse Computation is an operation used in many application domains. Our language tries to address the problem of reading from input a matrix as a long vector (given for example from an input file) parse it, and then perform basic linear algebra operations.
 
+All the code can be found in "base.ml", the two demos in "demo1.ml" and "demo2.ml", the other files are two test functionalities.
+
 ## Types
 The types implemented in our lanugage, that extends a simple basic imperative laguage are Vector and the specific types to handle different formats of sparse matrices. In our project we implemented the COO format (Coordinate List) but the same paradigm can be adopted to handle operations with other formats.
 
