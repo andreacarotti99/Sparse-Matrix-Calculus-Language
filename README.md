@@ -1,7 +1,5 @@
-# Programming Language Design - CS 476 - Final Project
-Basic linear algebra language to perform optimized computation targeting sparse systems.
-
 ## Language for Sparse Matrix Calculus
+Basic linear algebra language to perform optimized computation targeting sparse systems.
 
 Contributors: Sofia Lucca, Andrea Carotti
 
